@@ -23,9 +23,9 @@
         "googleMaps": {
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
         }
-      }
+      },
+      "package": "com.akalankadias.YumYum_Driver"
     },
-    
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -40,6 +40,12 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "@rnmapbox/maps",
+        {
+          "mapboxAccessToken": "pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ"
         }
       ],
       "expo-secure-store"

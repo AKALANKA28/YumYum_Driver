@@ -1,13 +1,13 @@
 const theme = {
     colors: {
-      primary: '#000000',        // Uber Black
-      secondary: '#00CC66',      // Uber Green
+      primary: '#000000',        // Black
+      secondary: '#f23f07',      
       background: '#FFFFFF',     // White
       cardBackground: '#F8F8F8', // Light gray for cards
       text: '#000000',           // Black
       lightText: '#666666',      // Gray for secondary text
       error: '#E50914',          // Red for errors
-      success: '#00CC66',        // Green for success states
+      success: '#f23f07',        // Green for success states
       warning: '#FFC107',        // Yellow for warnings
       border: '#E0E0E0',         // Light gray for borders
       inputBackground: '#F5F5F5', // Light gray for input backgrounds

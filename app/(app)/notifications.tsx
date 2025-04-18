@@ -82,7 +82,7 @@ export default function NotificationsScreen() {
   
   return (
     <Container>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      {/* <StatusBar barStyle="light-content" backgroundColor="#000000" /> */}
       
       <Header>
         <BackButton onPress={handleBack}>
