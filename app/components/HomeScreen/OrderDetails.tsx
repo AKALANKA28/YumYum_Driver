@@ -1,8 +1,8 @@
-import React from 'react';
-import { Animated, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useDriverContext } from '../../context/DriverContext';
-import { 
+import React from "react";
+import { Animated, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useDriverContext } from "../../src/context/DriverContext";
+import {
   OrderDetailsContent,
   TimerCircle,
   TimerText,
@@ -12,22 +12,22 @@ import {
   OrderAddressText,
   OrderAddressSubText,
   AcceptOrderButton,
-  AcceptOrderButtonText 
-} from './styles';
+  AcceptOrderButtonText,
+} from "./styles";
 
 interface OrderDetailsProps {
   opacity: Animated.Value;
 }
 
 const OrderDetails = ({ opacity }: OrderDetailsProps) => {
-  const { 
-    declineOrder, 
-    orderTimer, 
+  const {
+    declineOrder,
+    orderTimer,
     timerStrokeAnimation,
     orderDetails,
-    acceptOrder 
+    acceptOrder,
   } = useDriverContext();
-  
+
   return (
     <OrderDetailsContent style={{ opacity }}>
       {/* Timer with close button functionality */}
@@ -56,9 +56,7 @@ const OrderDetails = ({ opacity }: OrderDetailsProps) => {
 
       {/* Order address */}
       <OrderAddressContainer>
-        <OrderAddressText>
-          Delivery to: {orderDetails.address}
-        </OrderAddressText>
+        <OrderAddressText>Delivery to: {orderDetails.address}</OrderAddressText>
         <OrderAddressSubText>{orderDetails.city}</OrderAddressSubText>
       </OrderAddressContainer>
 

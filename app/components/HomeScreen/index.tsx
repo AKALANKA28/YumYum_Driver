@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Text, View, StyleSheet } from "react-native";
-import { useDriverContext } from "../../context/DriverContext";
+import { useDriverContext } from "../../src/context/DriverContext";
 import { Container } from "./styles";
 import MapDisplay from "./MapDisplay";
 import EarningsCardComponent from "./EarningsCard";
@@ -12,7 +12,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import SwipeableBottomSheet from "./SwipeableBottomSheet";
 
 const MapScreen = () => {
-  const { isOnline, showingOrderDetails, isLoading, error } = useDriverContext();
+  const { isOnline, showingOrderDetails, isLoading, error } =
+    useDriverContext();
 
   if (error) {
     return <ErrorView error={error} />;
@@ -25,10 +26,10 @@ const MapScreen = () => {
       <EarningsCardComponent />
       <ProfileButtonComponent />
       {isOnline && !showingOrderDetails && <OnlineStatusBadgeComponent />}
-    
+
       {/* Bottom Sheet */}
       <SwipeableBottomSheet />
-      
+
       {isLoading && <LoadingIndicator />}
     </GestureHandlerRootView>
   );
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.7)",
     justifyContent: "center",
     alignItems: "center",
-  }
+  },
 });
 
 export default MapScreen;

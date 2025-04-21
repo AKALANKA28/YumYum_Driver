@@ -7,16 +7,15 @@ import React, {
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from './types/api'; // Import the centralized API service
-import { 
-  LoginCredentials, 
-  Driver, 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import api, { API_BASE_URL } from "./types/api";
+import {
+  LoginCredentials,
+  Driver,
   DocumentType,
   DocumentUploadMetadata,
-  RegistrationRequest
-} from './types/auth';
-
+  RegistrationRequest,
+} from "./types/auth";
 
 // Auth state interface
 interface AuthState {
@@ -125,19 +124,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [authState, dispatch] = useReducer(authReducer, initialState);
 
-  // Check if user is already logged in
+  // Update this function in your AuthProvider component
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
-        const driverStr = await SecureStore.getItemAsync("driver");
-        const token = await SecureStore.getItemAsync("token");
+        console.log("Checking login status from storage...");
 
-        if (driverStr && token) {
-          const driver = JSON.parse(driverStr);
-          dispatch({ type: "LOGIN_SUCCESS", payload: driver });
-        } else {
-          dispatch({ type: "SET_LOADING", payload: false });
+        // Try to get both token and driver data
+        const [token, driverStr, driverId] = await Promise.all([
+          SecureStore.getItemAsync("token"),
+          SecureStore.getItemAsync("driver"),
+          AsyncStorage.getItem("driverId"),
+        ]);
+
+        console.log("Storage check results:", {
+          hasToken: !!token,
+          hasDriverData: !!driverStr,
+          driverId: driverId || "not found",
+        });
+
+        if (token && driverStr) {
+          try {
+            // Parse the driver data
+            const driver = JSON.parse(driverStr);
+
+            // Check if the driver object has required fields
+            if (driver && driver.id) {
+              console.log("Found valid login data, restoring session");
+
+              // Also ensure driverId is in AsyncStorage for other parts of the app
+              if (!driverId) {
+                await AsyncStorage.setItem("driverId", driver.id.toString());
+              }
+
+              // Update auth state
+              dispatch({ type: "LOGIN_SUCCESS", payload: driver });
+              return; // Exit the function after successful authentication
+            } else {
+              console.error("Driver data is incomplete:", driver);
+            }
+          } catch (parseError) {
+            console.error("Error parsing driver data:", parseError);
+          }
         }
+
+        // If we get here, either there was no token/driver data or it was invalid
+        console.log("No valid login data found");
+        dispatch({ type: "SET_LOADING", payload: false });
       } catch (error) {
         console.error("Error checking login status:", error);
         dispatch({ type: "SET_LOADING", payload: false });
@@ -151,24 +184,83 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const login = async (credentials: LoginCredentials) => {
     dispatch({ type: "SET_LOADING", payload: true });
     try {
+      console.log("Attempting login with credentials:", {
+        loginIdentifier: credentials.loginIdentifier,
+        password: "********", // Don't log actual password
+      });
+      console.log("Using API URL:", API_BASE_URL);
+
       const response = await api.auth.login({
         loginIdentifier: credentials.loginIdentifier,
         password: credentials.password,
       });
-      const { accessToken, ...driver } = response.data;
 
-      // Store the driver and token
-      await Promise.all([
-        SecureStore.setItemAsync("driver", JSON.stringify(driver)),
-        SecureStore.setItemAsync("token", accessToken),
-        // Add this line to store the driver ID for location updates
-        AsyncStorage.setItem("driverId", driver.id?.toString() || ""),
-      ]);
+      console.log("Login response status:", response.status);
+      console.log("Login response data keys:", Object.keys(response.data));
 
-      dispatch({ type: "LOGIN_SUCCESS", payload: driver });
+      // Extract token
+      const authToken = response.data.accessToken || response.data.token;
+
+      // Create a driver object with proper ID mapping
+      const driverData = {
+        // Map driverId to id for consistency
+        id: response.data.driverId || response.data.id,
+        username: response.data.username,
+        firstName: response.data.firstName,
+        lastName: response.data.lastName,
+        email: response.data.email,
+        phoneNumber: response.data.phoneNumber,
+        // Add other fields as needed
+      };
+
+      // Validate we have what we need
+      if (!authToken) {
+        console.error("No token found in response");
+        throw new Error("Authentication failed: No token received");
+      }
+
+      if (!driverData.id) {
+        console.error("No driver ID found in response data");
+        driverData.id = `temp-${Date.now()}`; // Create a temporary ID if none exists
+      }
+
+      // Save token to secure storage
+      await SecureStore.setItemAsync("token", authToken);
+
+      // Save driver data to secure storage (not AsyncStorage)
+      await SecureStore.setItemAsync("driver", JSON.stringify(driverData));
+
+      // Save driver ID to AsyncStorage for easier access in other parts of the app
+      await AsyncStorage.setItem("driverId", driverData.id.toString());
+
+      console.log("Login data saved successfully:", {
+        token: authToken.substring(0, 10) + '...',
+        driverId: driverData.id
+      });
+
+      // Update auth state with the driver data
+      dispatch({ type: "LOGIN_SUCCESS", payload: driverData });
     } catch (error: any) {
+      console.error("Login error:", error);
+
+      // Enhanced error logging
+      if (error.response) {
+        console.error("Error response status:", error.response.status);
+        console.error("Error response data:", error.response.data);
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error("No response received:", error.request);
+      } else {
+        // Something happened in setting up the request
+        console.error("Error message:", error.message);
+      }
+
       const errorMessage =
-        error.response?.data?.message || "Failed to login. Please try again.";
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to login. Please try again.";
+
       dispatch({ type: "LOGIN_FAILURE", payload: errorMessage });
       throw new Error(errorMessage);
     }
@@ -373,3 +465,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthProvider;

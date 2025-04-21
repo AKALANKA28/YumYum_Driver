@@ -17,8 +17,9 @@ import * as Location from "expo-location";
 import { Region } from "react-native-maps";
 import { router } from "expo-router";
 import axios from "axios";
-import * as Battery from 'expo-battery'; 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Battery from "expo-battery";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "./types/api";
 const { width } = Dimensions.get("window");
 const ASPECT_RATIO = width / Dimensions.get("window").height;
 const LATITUDE_DELTA = 0.0922;
@@ -277,27 +278,50 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const toggleOnlineStatus = async () => {
+    console.log(
+      "Toggling online status, current state:",
+      isOnline ? "ONLINE" : "OFFLINE"
+    );
+
     if (isOnline) {
       // Going offline
+      console.log("Going OFFLINE...");
       setIsFindingOrders(false);
 
       // First animate the button back to the original style
-      resetButtonToDefault(() => {
+      resetButtonToDefault(async () => {
         // Then set the online status to false
         stopLocationUpdates();
         setIsOnline(false);
+
+        // Update driver status on the server
+        try {
+          const driverId = await AsyncStorage.getItem("driverId");
+          if (driverId) {
+            console.log("Updating server with OFFLINE status...");
+            // Uncomment when API is ready:
+            // await api.tracking.goOffline(driverId);
+            console.log("Server status updated to OFFLINE");
+          }
+        } catch (error) {
+          console.error("Failed to update offline status:", error);
+        }
+
+        console.log("Driver is now OFFLINE");
       });
     } else {
       // Going online
+      console.log("Going ONLINE...");
       try {
         // Start watching location
         await startLocationUpdates();
         setIsOnline(true);
+        console.log("Driver is now ONLINE");
 
         // Animate the button to finding orders style
         animateToFindingOrders();
       } catch (err) {
-        console.error("Error watching location:", err);
+        console.error("Error going online:", err);
         Alert.alert(
           "Error",
           "Could not start location tracking. Please try again."
@@ -306,8 +330,9 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-
   const startLocationUpdates = async () => {
+    console.log("Starting location updates...");
+  
     // Get battery level if possible
     let batteryLevel = null;
     try {
@@ -317,51 +342,86 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log("Battery information not available");
     }
   
-    // Get driver ID from secure storage or auth context
-    const driverId = await AsyncStorage.getItem('driverId');
-    
-    if (!driverId) {
-      console.error("Driver ID not found, cannot update location");
+    // Get driver ID from secure storage
+    let driverId;
+    try {
+      driverId = await AsyncStorage.getItem("driverId");
+      
+      if (!driverId) {
+        console.error("Driver ID not found, cannot update location");
+        
+        // For development - provide a fallback ID
+        if (__DEV__) {
+          driverId = "dev-driver-123";
+          await AsyncStorage.setItem("driverId", driverId);
+        } else {
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Error retrieving driver ID:", error);
       return;
     }
   
-    const locationWatchId = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 5000,
-        distanceInterval: 10,
-      },
-      async (location) => {
-        setCurrentLocation(location);
+    try {
+      // Set online state first, before setting up the watcher
+      setIsOnline(true);
   
-        // Send location update to backend
-        if (isOnline) {
+      const locationWatchId = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 5000,
+          distanceInterval: 10,
+        },
+        async (location) => {
+          // Update current location in state
+          setCurrentLocation(location);
+  
+          // Only log location changes that are significant
+          if (
+            !currentLocation ||
+            Math.abs(
+              location.coords.latitude - currentLocation.coords.latitude
+            ) > 0.0001 ||
+            Math.abs(
+              location.coords.longitude - currentLocation.coords.longitude
+            ) > 0.0001
+          ) {
+            console.log(
+              `New location: ${location.coords.latitude.toFixed(5)}, ${location.coords.longitude.toFixed(5)}`
+            );
+          }
+  
           try {
-            // Include driver ID in the request URL or body based on your API design
-            await apiClient.post(`/driver/${driverId}/location`, {
+            // Create location data object
+            const locationData = {
               latitude: location.coords.latitude,
               longitude: location.coords.longitude,
               heading: location.coords.heading || 0,
               speed: location.coords.speed || 0,
               accuracy: location.coords.accuracy || 0,
-              batteryLevel: batteryLevel,
+              batteryLevel: batteryLevel ?? undefined,
               status: "AVAILABLE",
-            });
-            
-            // Optionally fetch latest driver data/status
-            const response = await apiClient.get(`/driver/${driverId}/location`);
-            // Update any state with the returned data if needed
-            // For example: setDriverStatus(response.data.status);
-          } catch (error) {
-            console.error("Failed to update location:", error);
+            };
+  
+            // Send the location update
+            await api.tracking.updateLocation(driverId, locationData);
+          } catch (error: any) {
+            console.error("Failed to update location:", error?.message);
           }
         }
-      }
-    );
+      );
   
-    setWatchId(locationWatchId);
+      // Store the subscription so we can remove it later
+      setWatchId(locationWatchId);
+      
+      console.log("Driver is now ONLINE");
+      
+    } catch (error: any) {
+      console.error("Error setting up location tracking:", error?.message);
+      throw error;
+    }
   };
-
   const acceptOrder = async () => {
     try {
       // await apiClient.post('/orders/accept', { orderId: orderDetails.id });
@@ -555,7 +615,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
-
   const closeOrderDetails = (callback?: () => void) => {
     // First fade out order details content
     Animated.timing(orderDetailsOpacity, {
@@ -668,3 +727,5 @@ export const useDriverContext = () => {
   }
   return context;
 };
+
+export default DriverContextProvider;

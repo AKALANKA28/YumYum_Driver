@@ -17,14 +17,14 @@ import { Ionicons } from "@expo/vector-icons";
 import styled from "styled-components/native";
 import * as FileSystem from "expo-file-system";
 
-import { useAuth } from "../src/context/AuthContext";
-import Button from "../src/components/common/Button";
-import DocumentUploader from "../src/components/common/DocumentUploader";
+import { useAuth } from "../context/AuthContext";
+import Button from "../components/common/Button";
+import DocumentUploader from "../components/common/DocumentUploader";
 import {
   DocumentType,
   DocumentUploadMetadata,
   RegistrationRequest,
-} from "../src/context/types/auth";
+} from "../context/types/auth";
 
 const SafeArea = styled(SafeAreaView)`
   flex: 1;

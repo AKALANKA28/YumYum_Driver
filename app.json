@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "YumYum_Driver",
-    "slug": "YumYum_Driver",
+    "name": "YumYum_Driver_APP",
+    "slug": "YumYum_Driver_APP",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -24,7 +24,7 @@
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
         }
       },
-      "package": "com.akalankadias.YumYum_Driver"
+      "package": "com.akalankadias.YumYum_Driver_APP"
     },
     "web": {
       "bundler": "metro",
@@ -52,6 +52,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ee3a8b6d-efea-4cf2-b0db-b21439a37942"
+      }
+    },
+    "owner": "akalankadias"
   }
 }

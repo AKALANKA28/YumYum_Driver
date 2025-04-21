@@ -1,15 +1,10 @@
-import React from 'react';
-import { useDriverContext } from '../../context/DriverContext';
-import { 
-  EarningsCard, 
-  CurrencyText, 
-  EarningsText, 
-  SmallText 
-} from './styles';
+import React from "react";
+import { useDriverContext } from "../../src/context/DriverContext";
+import { EarningsCard, CurrencyText, EarningsText, SmallText } from "./styles";
 
 const EarningsCardComponent = () => {
   const { currency, earnings } = useDriverContext();
-  
+
   return (
     <EarningsCard>
       <CurrencyText>{currency}</CurrencyText>

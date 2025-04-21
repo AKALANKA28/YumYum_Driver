@@ -1,9 +1,9 @@
-import React from 'react';
-import { StatusBar } from 'react-native';
-import { DriverContextProvider } from '../src/context/DriverContext';
-import MapScreen from '../src/components/HomeScreen';
+import React from "react";
+import { StatusBar } from "react-native";
+import { DriverContextProvider } from "../context/DriverContext";
+import MapScreen from "../components/HomeScreen";
 
-const DriverHome = () => {
+const Home = () => {
   return (
     <>
       <StatusBar
@@ -18,7 +18,7 @@ const DriverHome = () => {
   );
 };
 
-export default DriverHome;
+export default Home;
 
 // import React, { useState, useEffect, useRef } from "react";
 // import {
@@ -646,27 +646,27 @@ export default DriverHome;
 //       }),
 //     ]).start();
 //   };
-  
+
 //   // Simulated function to receive an order - in production, this would be triggered by your API
 //   const receiveOrder = () => {
 //     if (!currentLocation) return;
 
 //     // Generate route points based on current location
 //     const routePoints = generateRoutePoints(currentLocation);
-    
+
 //     // Set order route for drawing on the map
 //     setOrderRoute(routePoints);
-    
+
 //     // Move map to show the route
 //     mapRef.current?.fitToCoordinates(routePoints, {
 //       edgePadding: { top: 100, right: 80, bottom: 400, left: 80 },
 //       animated: true,
 //     });
-    
+
 //     // Reset the timer
 //     setOrderTimer(15);
 //     timerProgress.setValue(1);
-    
+
 //     // Show order details
 //     animateButtonToOrderDetails();
 //   };

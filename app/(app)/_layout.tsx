@@ -17,6 +17,7 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, DefaultTheme } from "styled-components/native";
 import { Stack } from "expo-router";
+import DriverContextProvider from "../context/DriverContext";
 
 declare module "styled-components" {
   export interface DefaultTheme {
@@ -34,11 +35,13 @@ export default function AppLayout() {
   const theme = useTheme();
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="home" options={{ headerShown: false }} />
-      <Stack.Screen name="orders" options={{ headerShown: false }} />
-      <Stack.Screen name="profile" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
-    </Stack>
+    <DriverContextProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="home" options={{ headerShown: false }} />
+        <Stack.Screen name="orders" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
+      </Stack>
+    </DriverContextProvider>
   );
 }

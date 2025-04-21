@@ -1,22 +1,22 @@
-import React from 'react';
-import { Animated } from 'react-native';
-import { useDriverContext } from '../../context/DriverContext';
-import { ExpandableButtonContainer } from './styles';
-import FindingOrdersButton from './FindingOrderButton';
-import GoOnlineButton from './GoOnlineButton';
-import OrderDetails from './OrderDetails';
+import React from "react";
+import { Animated } from "react-native";
+import { useDriverContext } from "../../src/context/DriverContext";
+import { ExpandableButtonContainer } from "./styles";
+import FindingOrdersButton from "./FindingOrderButton";
+import GoOnlineButton from "./GoOnlineButton";
+import OrderDetails from "./OrderDetails";
 
 const OrderButton = () => {
-  const { 
-    isFindingOrders, 
+  const {
+    isFindingOrders,
     showingOrderDetails,
-    buttonWidth, 
-    buttonHeight, 
-    buttonLeft, 
+    buttonWidth,
+    buttonHeight,
+    buttonLeft,
     buttonBottom,
     buttonBorderRadius,
     contentOpacity,
-    orderDetailsOpacity 
+    orderDetailsOpacity,
   } = useDriverContext();
 
   return (
@@ -39,9 +39,7 @@ const OrderButton = () => {
       </Animated.View>
 
       {/* Order Details Content (conditionally rendered) */}
-      {showingOrderDetails && (
-        <OrderDetails opacity={orderDetailsOpacity} />
-      )}
+      {showingOrderDetails && <OrderDetails opacity={orderDetailsOpacity} />}
     </ExpandableButtonContainer>
   );
 };

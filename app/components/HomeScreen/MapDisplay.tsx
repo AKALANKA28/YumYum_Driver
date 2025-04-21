@@ -1,9 +1,9 @@
-import React from 'react';
-import { View } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import { useDriverContext } from '../../context/DriverContext';
-import { MapContainer } from './styles';
+import React from "react";
+import { View } from "react-native";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import { useDriverContext } from "../../src/context/DriverContext";
+import { MapContainer } from "./styles";
 
 const MapDisplay = () => {
   const { initialRegion, mapRef, orderRoute } = useDriverContext();
