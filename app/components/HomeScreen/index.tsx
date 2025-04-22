@@ -25,7 +25,7 @@ const MapScreen = () => {
       <MapDisplay />
       <EarningsCardComponent />
       <ProfileButtonComponent />
-      {isOnline && !showingOrderDetails && <OnlineStatusBadgeComponent />}
+      {/* {isOnline && !showingOrderDetails && <OnlineStatusBadgeComponent />} */}
 
       {/* Order Button */}
       <OrderButton />

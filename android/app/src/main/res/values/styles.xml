@@ -16,4 +16,9 @@
     <item name="windowSplashScreenAnimatedIcon">@drawable/splashscreen_logo</item>
     <item name="postSplashScreenTheme">@style/AppTheme</item>
   </style>
+  <style name="ManeuverTextAppearance" parent="TextAppearance.AppCompat">
+    <item name="android:textColor">#FFFFFF</item>
+    <item name="android:textSize">20dp</item>
+    <item name="android:textStyle">bold</item>
+  </style>
 </resources>

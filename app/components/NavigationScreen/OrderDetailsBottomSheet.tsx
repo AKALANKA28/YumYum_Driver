@@ -6,7 +6,14 @@ import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 interface OrderDetailsBottomSheetProps {
   orderDetails: any;
   isNavigating: boolean;
-}
+  navigationInfo?: {
+    distanceRemaining: string;
+    durationRemaining: string;
+    arrivalTime: string;
+    currentSpeed: number;
+    speedLimit: number;
+    instructionText: string;
+  };}
 
 const OrderDetailsBottomSheet = forwardRef<BottomSheet, OrderDetailsBottomSheetProps>(
   ({ orderDetails, isNavigating }, ref) => {

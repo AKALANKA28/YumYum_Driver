@@ -107,12 +107,12 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     distance: "0.7 mi",
     payment: "7.80",
     restaurantCoordinates: {
-      latitude: 42.35,
-      longitude: -71.05,
+      latitude: 6.85883,
+      longitude: 80.02470,
     },
     customerCoordinates: {
-      latitude: 42.36,
-      longitude: -77.06,
+      latitude: 6.910771,
+      longitude: 79.885107,
     },
   });
 
@@ -628,61 +628,32 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     longitude: number;
   }
 
-  interface LocationObject {
-    coords: Coordinates;
+// In your generateRoutePoints function
+// Define the interface for route point generation result
+interface RoutePoint {
+  latitude: number;
+  longitude: number;
+}
+
+const generateRoutePoints = (currentLocation: Location.LocationObject | null): RoutePoint[] => {
+  if (!currentLocation || !currentLocation.coords) {
+    console.log("Using default route coordinates");
+    // Use Boston area for testing if no current location
+    return [
+      { latitude: 42.3601, longitude: -71.0589 }, // Boston downtown
+      { latitude: 42.3503, longitude: -71.0663 }  // Near Boston area
+    ];
   }
 
-  const generateRoutePoints = (startLocation: Location.LocationObject): RoutePoint[] => {
-    // Validate starting location
-    if (!startLocation || typeof startLocation.coords.latitude !== 'number' || 
-        typeof startLocation.coords.longitude !== 'number') {
-      console.error("Invalid starting location for route generation");
-      // Return a default route if the starting location is invalid
-      return [
-        { latitude: 42.35, longitude: -71.05 }, // Boston area default start
-        { latitude: 42.36, longitude: -71.06 }  // Boston area default end
-      ];
-    }
-    
-    // Generate a route based on the current location
-    // Create some sample route points based on the starting location
-    const routePoints: RoutePoint[] = [
-      { 
-        latitude: startLocation.coords.latitude,
-        longitude: startLocation.coords.longitude
-      },
-      {
-        latitude: startLocation.coords.latitude + 0.005,
-        longitude: startLocation.coords.longitude + 0.005
-      },
-      {
-        latitude: startLocation.coords.latitude + 0.01,
-        longitude: startLocation.coords.longitude + 0.008
-      }
-    ];
-    
-    // Make sure to validate the generated route points
-    const route: RoutePoint[] = [...routePoints]; // Use the generated route points
-    
-    // Ensure at least 2 valid points
-    if (route.length < 2) {
-      // Add a second point if only one exists
-      if (route.length === 1) {
-        route.push({
-          latitude: route[0].latitude + 0.01,
-          longitude: route[0].longitude + 0.01
-        });
-      } else {
-        // Create a default route if no points exist
-        route.push(
-          { latitude: 42.35, longitude: -71.05 }, 
-          { latitude: 42.36, longitude: -71.06 }
-        );
-      }
-    }
-    
-    return route;
-  };
+  const { latitude, longitude } = currentLocation.coords;
+  
+  // Generate a route around the current location
+  console.log(`Generating route from current location: ${latitude}, ${longitude}`);
+  return [
+    { latitude, longitude }, // Start at current location
+    { latitude: latitude + 0.01, longitude: longitude + 0.01 } // End a bit northeast
+  ];
+};
 
   const handleGoToSettings = () => {
     router.push("/(app)/settings");

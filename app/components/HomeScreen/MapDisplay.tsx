@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
-import Mapbox from '@rnmapbox/maps';
-import { MaterialIcons } from "@expo/vector-icons";
+import Mapbox from "@rnmapbox/maps";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router"; // Import the router
 
 import { useDriverContext } from "../../context/DriverContext";
 import { MapContainer } from "./styles";
 import OrderRouteDisplay from "./OrderRouteDisplay";
 
 // Important: Initialize Mapbox with your access token
-Mapbox.setAccessToken('pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ');
+Mapbox.setAccessToken(
+  "pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ"
+);
 
 // Main MapDisplay component
 const MapDisplay = () => {
@@ -16,14 +19,16 @@ const MapDisplay = () => {
   const [mapReady, setMapReady] = useState(false);
   const mapboxRef = useRef<Mapbox.MapView>(null);
   const cameraRef = useRef<Mapbox.Camera>(null);
-  const [followUserMode, setFollowUserMode] = useState<Mapbox.UserTrackingMode>(Mapbox.UserTrackingMode.Follow);
-  
+  const [followUserMode, setFollowUserMode] = useState<Mapbox.UserTrackingMode>(
+    Mapbox.UserTrackingMode.Follow
+  );
+
   // Handle map ready state
   const onMapReady = () => {
     console.log("Map is ready");
     setMapReady(true);
   };
-  
+
   // Initialize map camera when map is ready and we have initial region
   useEffect(() => {
     if (mapReady && initialRegion && cameraRef.current) {
@@ -38,17 +43,24 @@ const MapDisplay = () => {
       }
     }
   }, [mapReady, initialRegion]);
-  
+
   // Update camera when user location changes but only if we're in follow mode
   useEffect(() => {
-    if (mapReady && currentLocation && cameraRef.current && followUserMode === Mapbox.UserTrackingMode.Follow) {
+    if (
+      mapReady &&
+      currentLocation &&
+      cameraRef.current &&
+      followUserMode === Mapbox.UserTrackingMode.Follow
+    ) {
       try {
         cameraRef.current.setCamera({
-          centerCoordinate: [currentLocation.coords.longitude, currentLocation.coords.latitude],
+          centerCoordinate: [
+            currentLocation.coords.longitude,
+            currentLocation.coords.latitude,
+          ],
           animationMode: "flyTo",
           zoomLevel: 16,
           pitch: 30,
-
         });
       } catch (error) {
         console.log("Camera update error:", error);
@@ -58,11 +70,25 @@ const MapDisplay = () => {
 
   // Function to toggle between follow modes
   const toggleFollowMode = () => {
-    setFollowUserMode(prevMode => 
-      prevMode === Mapbox.UserTrackingMode.Follow 
-        ? Mapbox.UserTrackingMode.FollowWithHeading 
+    setFollowUserMode((prevMode) =>
+      prevMode === Mapbox.UserTrackingMode.Follow
+        ? Mapbox.UserTrackingMode.FollowWithHeading
         : Mapbox.UserTrackingMode.Follow
     );
+  };
+
+  // Router navigation handlers
+  const handleNavigateToOrders = () => {
+    router.push("/(app)/orders");
+  };
+
+
+  const handleNavigateToStats = () => {
+    router.push("/(app)/earnings");
+  };
+
+  const handleNavigateToSettings = () => {
+    router.push("/(app)/settings");
   };
 
   if (!initialRegion) {
@@ -80,54 +106,91 @@ const MapDisplay = () => {
         onDidFinishLoadingMap={onMapReady}
         logoEnabled={false}
       >
-        <Mapbox.Camera
-          ref={cameraRef}
-          zoomLevel={16}
-          animationDuration={600}
-        />
-        
+        <Mapbox.Camera ref={cameraRef} zoomLevel={16} animationDuration={600} />
+
         <Mapbox.UserLocation
           visible={true}
           showsUserHeadingIndicator={true}
           minDisplacement={1}
           requestsAlwaysUse={true}
         />
-        
-        {mapReady && orderRoute && <OrderRouteDisplay orderRoute={orderRoute} />}
+
+        {mapReady && orderRoute && (
+          <OrderRouteDisplay orderRoute={orderRoute} />
+        )}
       </Mapbox.MapView>
 
-      {/* Follow mode toggle button */}
-      <TouchableOpacity 
-        style={styles.followButton}
-        onPress={toggleFollowMode}
-      >
-        <MaterialIcons 
-          name={followUserMode === Mapbox.UserTrackingMode.Follow ? "my-location" : "location-searching"} 
-          size={24} 
-          color="white"
-        />
-      </TouchableOpacity>
+      <View style={styles.actionButtonsPanel}>
+        {/* Audio settings button */}
+        <TouchableOpacity 
+          style={styles.circleButton}
+          onPress={handleNavigateToOrders}
+          accessibilityLabel="Audio Settings"
+        >
+          <Feather name="triangle" size={20} color="#fff" />
+        </TouchableOpacity>
+        
+        {/* Statistics button */}
+        <TouchableOpacity 
+          style={styles.circleButton}
+          onPress={handleNavigateToStats}
+          accessibilityLabel="View Statistics"
+        >
+          <MaterialIcons name="settings" size={20} color="#fff" />
+        </TouchableOpacity>
+        
+        {/* Settings button */}
+        <TouchableOpacity 
+          style={styles.circleButton}
+          onPress={handleNavigateToSettings}
+          accessibilityLabel="App Settings"
+        >
+          <MaterialIcons name="align-vertical-bottom" size={20} color="#fff" />
+        </TouchableOpacity>
+        
+        {/* Follow mode toggle button */}
+        <TouchableOpacity
+          style={styles.circleButton}
+          onPress={toggleFollowMode}
+          accessibilityLabel="Toggle Location Tracking Mode"
+        >
+          <MaterialIcons
+            name={
+              followUserMode === Mapbox.UserTrackingMode.Follow
+                ? "my-location"
+                : "location-searching"
+            }
+            size={22}
+            color="white"
+          />
+        </TouchableOpacity>
+      </View>
     </MapContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  followButton: {
-    position: 'absolute',
+  actionButtonsPanel: {
+    position: "absolute",
     bottom: 30,
     right: 16,
-    backgroundColor: 'black',
-    borderRadius: 30,
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  circleButton: {
     width: 50,
     height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
+    borderRadius: 30,
+    backgroundColor: "black",
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 6,
+    elevation: 4,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  }
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
 });
 
 export default MapDisplay;
