@@ -1,6 +1,6 @@
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useDriverContext } from "../../src/context/DriverContext";
+import { useDriverContext } from "../../context/DriverContext";
 import { OnlineStatusBadge, StatusText } from "./styles";
 
 const OnlineStatusBadgeComponent = () => {

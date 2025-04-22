@@ -6,7 +6,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import styled from 'styled-components/native';
-import { LineChart } from 'react-native-chart-kit';
+// import { LineChart } from 'react-native-chart-kit';
 
 const { width } = Dimensions.get('window');
 
@@ -348,7 +348,7 @@ const chartConfig = {
               {activeTab === 'weekly' ? 'Daily Earnings' : 'Weekly Earnings'}
             </ChartTitle>
             
-            <LineChart
+            {/* <LineChart
               data={activeTab === 'weekly' ? weeklyData : monthlyData}
               width={width - 50}
               height={220}
@@ -358,7 +358,7 @@ const chartConfig = {
                 marginVertical: 8,
                 borderRadius: 16
               }}
-            />
+            /> */}
           </ChartContainer>
           
           <SectionTitle>Recent Transactions</SectionTitle>

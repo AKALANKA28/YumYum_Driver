@@ -137,6 +137,7 @@ export default function LoginScreen() {
   }) => {
     try {
       await login(values);
+      router.push("/(app)/home"); 
       // Successful login will trigger a redirect in the index.tsx page
     } catch (error) {
       // Error is handled by the auth context

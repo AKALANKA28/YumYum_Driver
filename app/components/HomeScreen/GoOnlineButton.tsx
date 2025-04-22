@@ -1,7 +1,7 @@
 import React from "react";
 import { TouchableOpacity, StyleSheet } from "react-native";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useDriverContext } from "../../src/context/DriverContext";
+import { useDriverContext } from "../../context/DriverContext";
 import { ButtonContent, GoOnlineText } from "./styles";
 
 const GoOnlineButton = () => {

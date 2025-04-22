@@ -1,5 +1,5 @@
 import React from "react";
-import { useDriverContext } from "../../src/context/DriverContext";
+import { useDriverContext } from "../../context/DriverContext";
 import { EarningsCard, CurrencyText, EarningsText, SmallText } from "./styles";
 
 const EarningsCardComponent = () => {

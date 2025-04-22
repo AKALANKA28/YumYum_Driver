@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Text, View, StyleSheet } from "react-native";
-import { useDriverContext } from "../../src/context/DriverContext";
+import { useDriverContext } from "../../context/DriverContext";
 import { Container } from "./styles";
 import MapDisplay from "./MapDisplay";
 import EarningsCardComponent from "./EarningsCard";
@@ -27,8 +27,11 @@ const MapScreen = () => {
       <ProfileButtonComponent />
       {isOnline && !showingOrderDetails && <OnlineStatusBadgeComponent />}
 
+      {/* Order Button */}
+      <OrderButton />
       {/* Bottom Sheet */}
-      <SwipeableBottomSheet />
+      
+      {/* <SwipeableBottomSheet /> */}
 
       {isLoading && <LoadingIndicator />}
     </GestureHandlerRootView>

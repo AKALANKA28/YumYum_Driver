@@ -1,5 +1,5 @@
 import React from "react";
-import { useDriverContext } from "../../src/context/DriverContext";
+import { useDriverContext } from "../../context/DriverContext";
 import { ProfileButton, ProfileImage } from "./styles";
 
 const ProfileButtonComponent = () => {

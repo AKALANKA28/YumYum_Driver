@@ -53,11 +53,11 @@
     "experiments": {
       "typedRoutes": true
     },
+    "owner": "akalankadias",
     "extra": {
       "eas": {
-        "projectId": "ee3a8b6d-efea-4cf2-b0db-b21439a37942"
+        "projectId": "a80f3310-9956-4752-88fc-693ab2689e5b"
       }
-    },
-    "owner": "akalankadias"
+    }
   }
 }

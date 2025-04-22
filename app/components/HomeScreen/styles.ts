@@ -195,9 +195,7 @@ export const OrderDetailsContent = styled(AnimatedView)`
 
 export const OrderInfoRow = styled(View)`
   flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  padding: 15px;
+  justify-content: flex-start;
 `;
 
 export const OrderTimeDistance = styled(Text)`
@@ -227,9 +225,9 @@ export const OrderAddressSubText = styled(Text)`
 
 export const AcceptOrderButton = styled(TouchableOpacity)`
   background-color: ${(props) => props.theme.colors.secondary || "#f23f07"};
-  margin: 15px;
-  padding: 15px;
-  border-radius: 8px;
+  margin-vertical: 15px;
+  padding: 18px;
+  border-radius:20px;
   flex-direction: row;
   align-items: center;
   justify-content: center;

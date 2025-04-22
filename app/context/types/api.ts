@@ -11,7 +11,8 @@ import {
 
 // Single base URL for all environments
 // Update this URL when switching between development, testing, and production
-const BASE_URL = "http://192.168.110.141:30080/api";
+// const BASE_URL = "http://192.168.221.141:8085/api";
+const BASE_URL = "http://192.168.1.159:8084/api";
 
 
 
