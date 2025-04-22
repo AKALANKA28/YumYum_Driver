@@ -82,7 +82,6 @@ const MapDisplay = () => {
     router.push("/(app)/orders");
   };
 
-
   const handleNavigateToStats = () => {
     router.push("/(app)/earnings");
   };
@@ -122,32 +121,32 @@ const MapDisplay = () => {
 
       <View style={styles.actionButtonsPanel}>
         {/* Audio settings button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.circleButton}
           onPress={handleNavigateToOrders}
           accessibilityLabel="Audio Settings"
         >
           <Feather name="triangle" size={20} color="#fff" />
         </TouchableOpacity>
-        
+
         {/* Statistics button */}
-        <TouchableOpacity 
-          style={styles.circleButton}
-          onPress={handleNavigateToStats}
-          accessibilityLabel="View Statistics"
-        >
-          <MaterialIcons name="settings" size={20} color="#fff" />
-        </TouchableOpacity>
-        
-        {/* Settings button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.circleButton}
           onPress={handleNavigateToSettings}
           accessibilityLabel="App Settings"
         >
+          <MaterialIcons name="settings" size={20} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Settings button */}
+        <TouchableOpacity
+          style={styles.circleButton}
+          onPress={handleNavigateToStats}
+          accessibilityLabel="View Statistics"
+        >
           <MaterialIcons name="align-vertical-bottom" size={20} color="#fff" />
         </TouchableOpacity>
-        
+
         {/* Follow mode toggle button */}
         <TouchableOpacity
           style={styles.circleButton}

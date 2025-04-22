@@ -1,4 +1,4 @@
-package com.akalankadias.YumYum_Driver
+package com.akalankadias.YumYum_Driver_APP
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
