@@ -18,7 +18,7 @@
     "@emotion/unitless": "^0.7.5",
     "@expo/vector-icons": "^14.0.2",
     "@gorhom/bottom-sheet": "^5",
-    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native-async-storage/async-storage": "^1.23.1",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@rnmapbox/maps": "^10.1.38",
@@ -27,6 +27,7 @@
     "@types/styled-components-react-native": "^5.2.5",
     "axios": "^1.8.4",
     "expo": "~52.0.46",
+    "expo-av": "~15.0.2",
     "expo-battery": "~9.0.2",
     "expo-blur": "~14.0.3",
     "expo-constants": "~17.0.8",
@@ -61,8 +62,7 @@
     "react-native-webview": "13.12.5",
     "styled-components": "^5.3.5",
     "typescript": "^5.8.3",
-    "yup": "^1.6.1",
-    "expo-av": "~15.0.2"
+    "yup": "^1.6.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
