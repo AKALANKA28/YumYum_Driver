@@ -44,6 +44,13 @@
           "mapboxAccessToken": "pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ"
         }
       ],
+      [
+        "@youssefhenna/expo-mapbox-navigation",
+        {
+          "accessToken": "pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ",
+          "mapboxMapsVersion": "^10.1.38"
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {

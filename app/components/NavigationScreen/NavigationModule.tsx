@@ -1,2 +1,2 @@
 // import { requireNativeModule } from "expo-modules-core";
-// export default requireNativeModule("MapboxNavigation");
+// export default requireNativeModule("ExpoMapboxNavigation");

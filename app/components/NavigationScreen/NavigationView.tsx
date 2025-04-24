@@ -7,7 +7,7 @@
 // } from "./types/Navigation";
 
 // const NativeView: React.ComponentType<NavigationViewProps> =
-//   requireNativeViewManager("MapboxNavigation");
+//   requireNativeViewManager("ExpoMapboxNavigation");
 
 // export default React.forwardRef<
 // NavigationViewRef,
