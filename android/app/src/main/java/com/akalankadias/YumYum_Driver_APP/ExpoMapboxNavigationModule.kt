@@ -1,4 +1,4 @@
-package com.akalankadias.YumYum_Driver_APP
+package com.akalankadias.YumYum_Driver_APP.expo.modules
 
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope

@@ -1,4 +1,4 @@
-package com.akalankadias.YumYum_Driver_APP
+package com.akalankadias.YumYum_Driver_APP.expo.modules
 
 import android.content.Context
 import android.content.res.Configuration
@@ -12,9 +12,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
+import com.akalankadias.YumYum_Driver_APP.R
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Expected
-import com.mapbox.common.location.Location
 import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.ImageHolder
