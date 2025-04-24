@@ -201,13 +201,16 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            // Add debug info to help diagnose auth issues
-            console.log("Logout initiated, clearing storage");
-            await AsyncStorage.removeItem("driver");
-            await AsyncStorage.removeItem("driverId");
-
+            // Simply call the logout function from AuthContext
+            // This already handles clearing storage in a coordinated way
+            console.log("Logging out using AuthContext...");
             await logout();
-            // Navigation will be handled automatically by the auth context
+
+            // The AuthContext's logout function will:
+            // 1. Clear SecureStore items (token and driver)
+            // 2. Clear AsyncStorage items (driverId)
+            // 3. Update the auth state to trigger navigation
+            console.log("Logout completed");
           } catch (error) {
             console.error("Error during logout:", error);
             Alert.alert("Error", "Failed to logout. Please try again.");

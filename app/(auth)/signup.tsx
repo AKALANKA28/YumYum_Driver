@@ -19,6 +19,16 @@ import PhoneInput from "react-native-phone-number-input";
 
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/common/Button";
+import { LogBox } from 'react-native';
+
+
+// Ignore specific deprecation warnings related to defaultProps
+LogBox.ignoreLogs([
+  'Warning: Main: Support for defaultProps will be removed from function components',
+  'Warning: CountryPicker: Support for defaultProps will be removed',
+  'Warning: Flag: Support for defaultProps will be removed',
+  'Warning: CountryModal: Support for defaultProps will be removed'
+]);
 
 const Container = styled(KeyboardAvoidingView)`
   flex: 1;

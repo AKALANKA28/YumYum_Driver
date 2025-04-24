@@ -9,6 +9,8 @@ import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { API_BASE_URL } from "./types/api";
+import auth from "@react-native-firebase/auth";
+
 import {
   LoginCredentials,
   Driver,

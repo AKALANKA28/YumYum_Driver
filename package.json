@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -18,7 +18,7 @@
     "@emotion/unitless": "^0.7.5",
     "@expo/vector-icons": "^14.0.2",
     "@gorhom/bottom-sheet": "^5",
-    "@react-native-async-storage/async-storage": "^1.23.1",
+    "@react-native-async-storage/async-storage": "1.23.1",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@rnmapbox/maps": "^10.1.38",
@@ -46,7 +46,6 @@
     "expo-system-ui": "~4.0.9",
     "expo-web-browser": "~14.0.2",
     "formik": "^2.4.6",
-    "install": "^0.13.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.9",
@@ -61,10 +60,9 @@
     "react-native-styled-components": "^2.1.0",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
-    "styled-components": "^5.3.5",
+    "styled-components": "^6.1.17",
     "typescript": "^5.8.3",
-    "yup": "^1.6.1",
-    "undefined": "mapbox/react-native-mapbox-navigation"
+    "yup": "^1.6.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

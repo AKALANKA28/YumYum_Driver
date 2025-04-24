@@ -94,7 +94,7 @@ packagingOptions {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.akalankadias.YumYum_Driver_APP'
+    namespace "com.yumyumdriverapp"
     defaultConfig {
         applicationId 'com.akalankadias.YumYum_Driver_APP'
         minSdkVersion rootProject.ext.minSdkVersion
