@@ -1,4 +1,4 @@
-const theme = {
+const lightTheme = {
     colors: {
       primary: '#000000',        // Black
       secondary: '#f23f07',      
@@ -41,6 +41,52 @@ const theme = {
       bold: '700',
     },
   };
+
+
   
-  export type Theme = typeof theme;
-  export default theme;
+
+  const darkTheme = {
+    colors: {
+      primary: '#FFFFFF',
+      secondary: '#ff6b3d',
+      background: '#121212',
+      cardBackground: '#1E1E1E',
+      text: '#FFFFFF',
+      lightText: '#BBBBBB',
+      // ...rest of the colors with dark mode adaptations
+    },
+    spacing: {
+      xs: 4,
+      sm: 8,
+      md: 16,
+      lg: 24,
+      xl: 32,
+      xxl: 48,
+    },
+    borderRadius: {
+      small: 4,
+      medium: 8,
+      large: 16,
+    },
+    fontSizes: {
+      small: 12,
+      medium: 14,
+      regular: 16,
+      large: 18,
+      xlarge: 24,
+      xxlarge: 32,
+    },
+    fontWeights: {
+      regular: '400',
+      medium: '500',
+      bold: '700',
+    },
+  };
+
+  export const themes = {
+    light: lightTheme,
+    dark: darkTheme,
+  };
+  
+  export type Theme = typeof lightTheme;
+  export default themes.light; // Default to light theme

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,8 @@ import DropDownPicker from "react-native-dropdown-picker";
 import { useAuth } from "../context/AuthContext";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
+import VehicleSelector from "../components/auth/VehicleSelector";
+import FormStorage from "../utils/FormStorage";
 
 const Container = styled(KeyboardAvoidingView)`
   flex: 1;
@@ -61,7 +63,8 @@ const ProgressBar = styled(View)`
   flex: 1;
   background-color: ${(props) => props.theme.colors.border};
   border-radius: 2px;
-  margin-horizontal: ${(props) => props.theme.spacing.xs}px;
+  margin-left: ${(props) => props.theme.spacing.xs}px;
+  margin-right: ${(props) => props.theme.spacing.xs}px;
 `;
 
 const ProgressIndicator = styled(View)<{ active: boolean }>`
@@ -101,17 +104,17 @@ const Subtitle = styled(Text)`
   margin-bottom: ${(props) => props.theme.spacing.xl}px;
 `;
 
-const DropdownLabel = styled(Text)`
+const SectionLabel = styled(Text)`
   font-size: ${(props) => props.theme.fontSizes.medium}px;
   font-weight: ${(props) => props.theme.fontWeights.medium};
   color: ${(props) => props.theme.colors.text};
   margin-bottom: ${(props) => props.theme.spacing.xs}px;
 `;
 
-const DropdownContainer = styled(View)`
-  margin-bottom: ${(props) => props.theme.spacing.md}px;
-  z-index: 1000;
+const SectionContainer = styled(View)`
+  margin-bottom: ${(props) => props.theme.spacing.lg}px;
 `;
+
 
 const ErrorText = styled(Text)`
   font-size: ${(props) => props.theme.fontSizes.small}px;
@@ -119,6 +122,14 @@ const ErrorText = styled(Text)`
   margin-top: ${(props) => props.theme.spacing.xs}px;
 `;
 
+const RowContainer = styled(View)`
+  flex-direction: row;
+  justify-content: space-between;
+`;
+
+const HalfWidthContainer = styled(View)`
+  width: 48%; 
+`;
 // Form validation schema
 const VehicleInfoSchema = Yup.object().shape({
   vehicleType: Yup.string().required("Vehicle type is required"),
@@ -130,24 +141,36 @@ const VehicleInfoSchema = Yup.object().shape({
     .required("Vehicle year is required"),
 });
 
-const vehicleTypeOptions = [
-  { label: "Car", value: "CAR" },
-  { label: "Motorcycle", value: "MOTORCYCLE" },
-  { label: "Scooter", value: "SCOOTER" },
-  { label: "Bicycle", value: "BICYCLE" },
-];
-
 export default function VehicleInfoScreen() {
   const params = useLocalSearchParams();
   const personalInfoString = params.personalInfo as string;
   const personalInfo = JSON.parse(personalInfoString);
-
   const { authState } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [initialValues, setInitialValues] = useState({
+    vehicleType: "",
+    licensePlate: "",
+    vehicleMake: "",
+    vehicleModel: "",
+    vehicleYear: "",
+  });
+
+  useEffect(() => {
+    const loadSavedData = async () => {
+      const savedData = await FormStorage.getVehicleInfo();
+      if (savedData) {
+        setInitialValues(savedData);
+      }
+    };
+
+    loadSavedData();
+  }, []);
 
   const handleSubmitVehicleInfo = async (values: any) => {
     try {
-      // Create vehicle details object in the format expected by API
+      // Save form data
+      await FormStorage.saveVehicleInfo(values);
+
+      // Create vehicle details object
       const vehicleDetails = {
         brand: values.vehicleMake,
         model: values.vehicleModel,
@@ -157,7 +180,7 @@ export default function VehicleInfoScreen() {
         vehicleType: values.vehicleType,
       };
 
-      // Navigate to document upload screen with both data pieces
+      // Navigate to document upload
       router.push({
         pathname: "/(auth)/document-upload",
         params: {
@@ -215,15 +238,10 @@ export default function VehicleInfoScreen() {
         </Subtitle>
 
         <Formik
-          initialValues={{
-            vehicleType: "",
-            licensePlate: "",
-            vehicleMake: "",
-            vehicleModel: "",
-            vehicleYear: "",
-          }}
+          initialValues={initialValues}
           validationSchema={VehicleInfoSchema}
           onSubmit={handleSubmitVehicleInfo}
+          enableReinitialize={true}
         >
           {({
             handleChange,
@@ -237,47 +255,51 @@ export default function VehicleInfoScreen() {
             setFieldValue,
           }) => (
             <>
-              <DropdownContainer>
-                <DropdownLabel>Vehicle Type</DropdownLabel>
-                <DropDownPicker
-                  open={open}
+              <SectionContainer>
+                <SectionLabel>Vehicle Type</SectionLabel>
+                <VehicleSelector
                   value={values.vehicleType}
-                  items={vehicleTypeOptions}
-                  setOpen={setOpen}
-                  setValue={(value) => {
-                    setFieldValue("vehicleType", value());
-                  }}
-                  style={{
-                    borderColor:
-                      touched.vehicleType && errors.vehicleType
-                        ? "#E50914"
-                        : "#E0E0E0",
-                    borderRadius: 8,
-                    backgroundColor: "#F5F5F5",
-                  }}
-                  dropDownContainerStyle={{
-                    borderColor: "#E0E0E0",
-                    borderRadius: 8,
-                  }}
-                  placeholder="Select your vehicle type"
+                  onChange={(value) => setFieldValue("vehicleType", value)}
+                  error={
+                    touched.vehicleType && errors.vehicleType
+                      ? errors.vehicleType
+                      : undefined
+                  }
                 />
-                {touched.vehicleType && errors.vehicleType && (
-                  <ErrorText>{errors.vehicleType}</ErrorText>
-                )}
-              </DropdownContainer>
+              </SectionContainer>
 
-              <Input
-                label="License Plate Number"
-                placeholder="Enter license plate"
-                value={values.licensePlate}
-                onChangeText={handleChange("licensePlate")}
-                error={
-                  touched.licensePlate && errors.licensePlate
-                    ? errors.licensePlate
-                    : undefined
-                }
-                autoCapitalize="characters"
-              />
+              <RowContainer>
+                <HalfWidthContainer>
+                  <Input
+                    label="License Plate Number"
+                    placeholder="Enter plate"
+                    value={values.licensePlate}
+                    onChangeText={handleChange("licensePlate")}
+                    error={
+                      touched.licensePlate && errors.licensePlate
+                        ? errors.licensePlate
+                        : undefined
+                    }
+                    autoCapitalize="characters"
+                  />
+                </HalfWidthContainer>
+
+                <HalfWidthContainer>
+                  <Input
+                    label="Vehicle Year"
+                    placeholder="E.g., 2020"
+                    value={values.vehicleYear}
+                    onChangeText={handleChange("vehicleYear")}
+                    error={
+                      touched.vehicleYear && errors.vehicleYear
+                        ? errors.vehicleYear
+                        : undefined
+                    }
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                </HalfWidthContainer>
+              </RowContainer>
 
               <Input
                 label="Vehicle Make"
@@ -305,19 +327,7 @@ export default function VehicleInfoScreen() {
                 autoCapitalize="words"
               />
 
-              <Input
-                label="Vehicle Year"
-                placeholder="E.g., 2020"
-                value={values.vehicleYear}
-                onChangeText={handleChange("vehicleYear")}
-                error={
-                  touched.vehicleYear && errors.vehicleYear
-                    ? errors.vehicleYear
-                    : undefined
-                }
-                keyboardType="number-pad"
-                maxLength={4}
-              />
+          
 
               <Button
                 title="Next"

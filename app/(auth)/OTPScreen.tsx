@@ -17,6 +17,7 @@ import OTPTextInput from "react-native-otp-textinput";
 
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/common/Button";
+import FormStorage from "../utils/FormStorage";
 
 const Container = styled(KeyboardAvoidingView)`
   flex: 1;
@@ -108,10 +109,13 @@ const OTPSchema = Yup.object().shape({
 });
 
 export default function OTPScreen() {
-  const params = useLocalSearchParams();
-  const phoneNumber = params.phoneNumber as string;
+  const params = useLocalSearchParams<{
+    phoneNumber: string;
+  }>();
 
+  const { phoneNumber } = params;
   const { verifyOTP, signup, authState, clearError } = useAuth();
+
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,6 +139,22 @@ export default function OTPScreen() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    // If phone is already verified, navigate to next screen
+    if (
+      authState.isPhoneVerified &&
+      authState.verifiedPhoneNumber === phoneNumber
+    ) {
+      router.replace({
+        pathname: "/(auth)/personal-info",
+        params: {
+          phoneNumber: phoneNumber,
+          verificationId: "verified",
+        },
+      });
+    }
+  }, [authState.isPhoneVerified, authState.verifiedPhoneNumber, phoneNumber]);
 
   const startTimer = () => {
     setTimer(60);
@@ -176,6 +196,13 @@ export default function OTPScreen() {
       });
 
       console.log("Verification successful, result:", result);
+
+      // Store verification data locally with timestamp
+      await FormStorage.saveVerificationData({
+        phoneNumber,
+        verificationId: result,
+        timestamp: Date.now(),
+      });
 
       // Navigate to personal info screen with a slight delay to ensure UI updates
       setTimeout(() => {

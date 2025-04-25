@@ -9,7 +9,7 @@ import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { API_BASE_URL } from "./types/api";
-import auth from "@react-native-firebase/auth";
+import FormStorage from "../utils/FormStorage";
 
 import {
   LoginCredentials,
@@ -25,6 +25,8 @@ interface AuthState {
   driver: Driver | null;
   isLoading: boolean;
   error: string | null;
+  isPhoneVerified: boolean; // New field to track phone verification
+  verifiedPhoneNumber: string | null; // Store the verified phone number
 }
 
 // Define initial auth state
@@ -33,6 +35,8 @@ const initialState: AuthState = {
   driver: null,
   isLoading: true,
   error: null,
+  isPhoneVerified: false,
+  verifiedPhoneNumber: null,
 };
 
 // Auth actions
@@ -44,7 +48,11 @@ type AuthAction =
   | { type: "SIGNUP_SUCCESS" }
   | { type: "SIGNUP_FAILURE"; payload: string }
   | { type: "CLEAR_ERROR" }
-  | { type: "SET_LOADING"; payload: boolean };
+  | { type: "SET_LOADING"; payload: boolean }
+  | {
+      type: "PHONE_VERIFIED";
+      payload: { phoneNumber: string; verificationId: string };
+    };
 
 // Auth reducer
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
@@ -65,6 +73,14 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isLoading: false,
         error: action.payload,
       };
+    case "PHONE_VERIFIED":
+      return {
+        ...state,
+        isPhoneVerified: true,
+        verifiedPhoneNumber: action.payload.phoneNumber,
+        isLoading: false,
+        error: null,
+      };
     case "LOGOUT":
       return {
         ...state,
@@ -72,6 +88,8 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         driver: null,
         isLoading: false,
         error: null,
+        isPhoneVerified: false, // Clear verification status on logout
+        verifiedPhoneNumber: null,
       };
     case "SIGNUP_START":
       return {
@@ -126,52 +144,55 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [authState, dispatch] = useReducer(authReducer, initialState);
 
-  // Update this function in your AuthProvider component
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
         console.log("Checking login status from storage...");
 
-        // Try to get both token and driver data
-        const [token, driverStr, driverId] = await Promise.all([
+        // Get auth data from SecureStore
+        const [token, driverStr] = await Promise.all([
           SecureStore.getItemAsync("token"),
           SecureStore.getItemAsync("driver"),
-          AsyncStorage.getItem("driverId"),
         ]);
 
-        console.log("Storage check results:", {
-          hasToken: !!token,
-          hasDriverData: !!driverStr,
-          driverId: driverId || "not found",
-        });
-
+        // Handle full authentication first
         if (token && driverStr) {
           try {
-            // Parse the driver data
             const driver = JSON.parse(driverStr);
-
-            // Check if the driver object has required fields
             if (driver && driver.id) {
-              console.log("Found valid login data, restoring session");
-
-              // Also ensure driverId is in AsyncStorage for other parts of the app
-              if (!driverId) {
-                await AsyncStorage.setItem("driverId", driver.id.toString());
-              }
-
-              // Update auth state
               dispatch({ type: "LOGIN_SUCCESS", payload: driver });
-              return; // Exit the function after successful authentication
-            } else {
-              console.error("Driver data is incomplete:", driver);
+              return;
             }
           } catch (parseError) {
             console.error("Error parsing driver data:", parseError);
           }
         }
 
-        // If we get here, either there was no token/driver data or it was invalid
-        console.log("No valid login data found");
+        // If not authenticated, check for verification status
+        const verificationData = await FormStorage.getVerificationData();
+
+        if (verificationData) {
+          const { phoneNumber, verificationId, timestamp } = verificationData;
+
+          // Check if verification is still valid (within 24 hours)
+          const isStillValid = Date.now() - timestamp < 24 * 60 * 60 * 1000;
+
+          if (isStillValid) {
+            console.log(
+              "Found valid verification data, restoring verification state"
+            );
+            dispatch({
+              type: "PHONE_VERIFIED",
+              payload: { phoneNumber, verificationId },
+            });
+            return;
+          } else {
+            console.log("Verification data expired, clearing it");
+            await FormStorage.clearVerificationData();
+          }
+        }
+
+        // No valid auth or verification found
         dispatch({ type: "SET_LOADING", payload: false });
       } catch (error) {
         console.error("Error checking login status:", error);
@@ -236,8 +257,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       await AsyncStorage.setItem("driverId", driverData.id.toString());
 
       console.log("Login data saved successfully:", {
-        token: authToken.substring(0, 10) + '...',
-        driverId: driverData.id
+        token: authToken.substring(0, 10) + "...",
+        driverId: driverData.id,
       });
 
       // Update auth state with the driver data
@@ -299,19 +320,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       console.log("Received verification params:", params);
 
-      // Create the payload with the correct parameter name
       const payload = {
         phoneNumber: params.phoneNumber,
-        code: params.otp || params.code, // Accept either 'otp' or 'code' but send 'code' to API
+        code: params.otp || params.code,
       };
 
       console.log("Sending verification request with payload:", payload);
 
       const response = await api.auth.verify(payload);
-
       console.log("OTP verification successful, response:", response.data);
 
-      return response.data.verificationId || response.data.token || "";
+      // Store verification data in secure storage with timestamp
+      const verificationData = {
+        phoneNumber: params.phoneNumber,
+        verificationId:
+          response.data.verificationId || response.data.token || "",
+        timestamp: Date.now(), // Add timestamp for expiry checks
+      };
+
+      await SecureStore.setItemAsync(
+        "verificationData",
+        JSON.stringify(verificationData)
+      );
+
+      await FormStorage.saveVerificationData({
+        phoneNumber: params.phoneNumber,
+        verificationId:
+          response.data.verificationId || response.data.token || "",
+        timestamp: Date.now(),
+      });
+
+      // Update state to reflect verified phone
+      dispatch({
+        type: "PHONE_VERIFIED",
+        payload: {
+          phoneNumber: params.phoneNumber,
+          verificationId: verificationData.verificationId,
+        },
+      });
+
+      return verificationData.verificationId;
     } catch (error: any) {
       console.error("Error verifying OTP:", error);
       if (error.response) {
@@ -373,6 +421,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           SecureStore.setItemAsync("token", token),
         ]);
 
+        // Registration successful with token, clear temporary form data
+        await FormStorage.clearAllFormData();
+        await FormStorage.clearVerificationData();
+
         dispatch({ type: "LOGIN_SUCCESS", payload: driver });
         return driver;
       } else {
@@ -408,10 +460,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   // Logout function
   const logout = async () => {
     try {
-      // Clear stored data
+      // Clear all stored data including verification
       await Promise.all([
         SecureStore.deleteItemAsync("driver"),
         SecureStore.deleteItemAsync("token"),
+        SecureStore.deleteItemAsync("verificationData"), // Add this line
         AsyncStorage.removeItem("driverId"),
       ]);
 

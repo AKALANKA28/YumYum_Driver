@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   Platform,
   StatusBar,
   Alert,
+  TextInput,
+  Keyboard,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Formik } from "formik";
@@ -18,6 +20,7 @@ import styled from "styled-components/native";
 import { useAuth } from "../context/AuthContext";
 import Input from "../components/common/Input";
 import Button from "../components/common/Button";
+import FormStorage from '../utils/FormStorage';
 
 const Container = styled(KeyboardAvoidingView)`
   flex: 1;
@@ -125,6 +128,32 @@ const PersonalInfoSchema = Yup.object().shape({
     .required("Confirm password is required"),
 });
 
+// Add these new styled components after your existing styled components
+const HelperText = styled(Text)`
+  font-size: ${(props) => props.theme.fontSizes.small}px;
+  color: ${(props) => props.theme.colors.lightText};
+  margin-top: ${(props) => props.theme.spacing.xs}px;
+  margin-bottom: ${(props) => props.theme.spacing.sm}px;
+  margin-left: ${(props) => props.theme.spacing.sm}px;
+`;
+
+const AgreementContainer = styled(View)`
+  margin-top: ${(props) => props.theme.spacing.md}px;
+  margin-bottom: ${(props) => props.theme.spacing.lg}px;
+  padding-horizontal: ${(props) => props.theme.spacing.xs}px;
+`;
+
+const AgreementText = styled(Text)`
+  font-size: ${(props) => props.theme.fontSizes.small}px;
+  color: ${(props) => props.theme.colors.text};
+  line-height: 18px;
+`;
+
+const LinkText = styled(Text)`
+  color: ${(props) => props.theme.colors.primary};
+  text-decoration-line: underline;
+`;
+
 export default function PersonalInfoScreen() {
   const params = useLocalSearchParams();
   const phoneNumber = params.phoneNumber as string;
@@ -133,17 +162,47 @@ export default function PersonalInfoScreen() {
   const { authState, clearError } = useAuth();
   const [submitting, setSubmitting] = React.useState(false);
 
-  React.useEffect(() => {
+  const lastNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [initialFormValues, setInitialFormValues] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    city: "",
+  });
+  
+  useEffect(() => {
     // Clear any previous errors when the screen loads
     if (authState.error) {
       clearError();
     }
   }, []);
 
-  const handleSubmitPersonalInfo = async (values: any) => {
+   // Load saved form data when component mounts
+   useEffect(() => {
+    const loadSavedData = async () => {
+      const savedData = await FormStorage.getPersonalInfo();
+      if (savedData) {
+        setInitialFormValues(savedData);
+      }
+    };
+    
+    loadSavedData();
+  }, []);
+
+
+    const handleSubmitPersonalInfo = async (values: any) => {
     try {
       setSubmitting(true);
-
+      
+      // Save form data to storage
+      await FormStorage.savePersonalInfo(values);
+      
       // Create the personal info object
       const personalInfo = {
         firstName: values.firstName,
@@ -152,12 +211,10 @@ export default function PersonalInfoScreen() {
         password: values.password,
         phoneNumber: phoneNumber,
         verificationId: verificationId,
+        city: values.city,
       };
-
-      console.log("Submitting personal info:", personalInfo);
-
-      // Don't call registerDriver here - we need vehicle info first
-      // Just navigate to the next screen with the personal info
+      
+      // Navigate to vehicle info screen
       router.push({
         pathname: "/(auth)/vehicle-info",
         params: { personalInfo: JSON.stringify(personalInfo) },
@@ -177,6 +234,21 @@ export default function PersonalInfoScreen() {
     router.back();
   };
 
+  const handleTermsPress = () => {
+    // Open terms of use in a webview or navigate to terms screen
+    // router.push("/terms-of-use");
+  };
+
+  const handlePrivacyPress = () => {
+    // Open privacy policy in a webview or navigate to privacy screen
+    // router.push("/privacy-policy");
+  };
+
+  const handleInputFocus = (inputY: number) => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: inputY - 100, animated: true });
+    }
+  };
   const renderProgressBar = () => {
     return (
       <ProgressContainer>
@@ -218,16 +290,11 @@ export default function PersonalInfoScreen() {
         {authState.error && <ErrorText>{authState.error}</ErrorText>}
 
         <Formik
-          initialValues={{
-            firstName: "",
-            lastName: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-          }}
-          validationSchema={PersonalInfoSchema}
-          onSubmit={handleSubmitPersonalInfo}
-        >
+           initialValues={initialFormValues}
+           validationSchema={PersonalInfoSchema}
+           onSubmit={handleSubmitPersonalInfo}
+           enableReinitialize={true} // Important to use saved values
+         >
           {({
             handleChange,
             handleBlur,
@@ -251,9 +318,19 @@ export default function PersonalInfoScreen() {
                     : undefined
                 }
                 autoCapitalize="words"
+                returnKeyType="next"
+                onSubmitEditing={() => lastNameRef.current?.focus()}
+                blurOnSubmit={false}
+                onFocus={(e) => {
+                  // Access the y position of this input and scroll to it
+                  e.target.measure((fx, fy, width, height, px, py) => {
+                    handleInputFocus(py);
+                  });
+                }}
               />
 
               <Input
+                ref={lastNameRef}
                 label="Last Name"
                 placeholder="Enter your last name"
                 value={values.lastName}
@@ -265,9 +342,18 @@ export default function PersonalInfoScreen() {
                     : undefined
                 }
                 autoCapitalize="words"
+                returnKeyType="next"
+                onSubmitEditing={() => emailRef.current?.focus()}
+                blurOnSubmit={false}
+                onFocus={(e) => {
+                  e.target.measure((fx, fy, width, height, px, py) => {
+                    handleInputFocus(py);
+                  });
+                }}
               />
 
               <Input
+                ref={emailRef}
                 label="Email Address"
                 placeholder="Enter your email address"
                 value={values.email}
@@ -276,9 +362,38 @@ export default function PersonalInfoScreen() {
                 error={touched.email && errors.email ? errors.email : undefined}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                blurOnSubmit={false}
+                onFocus={(e) => {
+                  e.target.measure((fx, fy, width, height, px, py) => {
+                    handleInputFocus(py);
+                  });
+                }}
               />
 
               <Input
+                // ref={cityRef}
+                label="City"
+                placeholder="Enter your city"
+                // value={values.city}
+                onChangeText={handleChange("city")}
+                onBlur={handleBlur("city")}
+                // error={touched.city && errors.city ? errors.city : undefined}
+                // keyboardType="city"
+                autoCapitalize="none"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                blurOnSubmit={false}
+                onFocus={(e) => {
+                  e.target.measure((fx, fy, width, height, px, py) => {
+                    handleInputFocus(py);
+                  });
+                }}
+              />
+
+              <Input
+                ref={passwordRef}
                 label="Create Password"
                 placeholder="Enter a strong password"
                 value={values.password}
@@ -290,9 +405,18 @@ export default function PersonalInfoScreen() {
                     : undefined
                 }
                 secureTextEntry
+                returnKeyType="next"
+                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                blurOnSubmit={false}
+                onFocus={(e) => {
+                  e.target.measure((fx, fy, width, height, px, py) => {
+                    handleInputFocus(py);
+                  });
+                }}
               />
 
               <Input
+                ref={confirmPasswordRef}
                 label="Confirm Password"
                 placeholder="Re-enter your password"
                 value={values.confirmPassword}
@@ -304,10 +428,60 @@ export default function PersonalInfoScreen() {
                     : undefined
                 }
                 secureTextEntry
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  Keyboard.dismiss();
+                  if (isValid && dirty && !submitting) {
+                    handleSubmit();
+                  }
+                }}
+                onFocus={(e) => {
+                  e.target.measure((fx, fy, width, height, px, py) => {
+                    handleInputFocus(py);
+                  });
+                }}
               />
 
+              <AgreementContainer>
+                {/* <TouchableOpacity
+                  onPress={() =>
+                    setFieldValue("termsAccepted", !values.termsAccepted)
+                  }
+                  style={{ flexDirection: "row", alignItems: "flex-start" }}
+                > */}
+                  {/* <Ionicons
+                    name={values.termsAccepted ? "checkbox" : "square-outline"}
+                    size={20}
+                    color={values.termsAccepted ? "#4CAF50" : "#999"}
+                    style={{ marginRight: 8, marginTop: 2 }}
+                  /> */}
+                  <AgreementText>
+                    By proceeding, I agree to YumYum's{" "}
+                    <LinkText onPress={handleTermsPress}>Terms of Use</LinkText>{" "}
+                    and acknowledge that I have read the{" "}
+                    <LinkText onPress={handlePrivacyPress}>
+                      Privacy Policy
+                    </LinkText>
+                    .
+                  </AgreementText>
+                {/* </TouchableOpacity> */}
+
+                <View style={{ height: 12 }} />
+
+                <AgreementText>
+                  I also agree that YumYum or its representatives may contact me
+                  by email, phone or SMS (including by automated means) at the
+                  email address or number I provide, including for marketing
+                  purposes.
+                </AgreementText>
+
+                {touched.termsAccepted && errors.termsAccepted && (
+                  <ErrorText>{errors.termsAccepted}</ErrorText>
+                )}
+              </AgreementContainer>
+
               <Button
-                title={submitting ? "Processing..." : "Next"}
+                title={submitting ? "Processing..." : "Continue"}
                 onPress={handleSubmit}
                 disabled={!(isValid && dirty) || submitting}
                 loading={submitting}

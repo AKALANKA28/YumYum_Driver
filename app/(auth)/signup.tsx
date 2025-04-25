@@ -19,15 +19,14 @@ import PhoneInput from "react-native-phone-number-input";
 
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/common/Button";
-import { LogBox } from 'react-native';
-
+import { LogBox } from "react-native";
 
 // Ignore specific deprecation warnings related to defaultProps
 LogBox.ignoreLogs([
-  'Warning: Main: Support for defaultProps will be removed from function components',
-  'Warning: CountryPicker: Support for defaultProps will be removed',
-  'Warning: Flag: Support for defaultProps will be removed',
-  'Warning: CountryModal: Support for defaultProps will be removed'
+  "Warning: Main: Support for defaultProps will be removed from function components",
+  "Warning: CountryPicker: Support for defaultProps will be removed",
+  "Warning: Flag: Support for defaultProps will be removed",
+  "Warning: CountryModal: Support for defaultProps will be removed",
 ]);
 
 const Container = styled(KeyboardAvoidingView)`
@@ -154,6 +153,24 @@ export default function SignupScreen() {
 
   const handleSignup = async (values: { phoneNumber: string }) => {
     try {
+      // If the phone is already verified, skip verification
+      if (
+        authState.isPhoneVerified &&
+        authState.verifiedPhoneNumber === values.phoneNumber
+      ) {
+        console.log("Phone already verified, skipping OTP");
+
+        // Navigate directly to personal info screen
+        router.push({
+          pathname: "/(auth)/personal-info",
+          params: {
+            phoneNumber: values.phoneNumber,
+            verificationId: "verified",
+          },
+        });
+        return;
+      }
+
       // Clear any previous errors
       if (authState.error) {
         clearError();
@@ -204,7 +221,7 @@ export default function SignupScreen() {
         </LogoContainer>
 
         <Title>Get Started</Title>
-        <Subtitle>Sign up to start delivering with Uber Eats</Subtitle>
+        <Subtitle>Sign up to start delivering with Yum Yum</Subtitle>
 
         {authState.error && <ErrorText>{authState.error}</ErrorText>}
 

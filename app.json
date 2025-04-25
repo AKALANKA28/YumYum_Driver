@@ -17,9 +17,12 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "config": {
-      
-      },
+       "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE"
+      ],
       "package": "com.akalankadias.YumYum_Driver_APP"
     },
     "web": {
@@ -41,14 +44,15 @@
       [
         "@rnmapbox/maps",
         {
-          "mapboxAccessToken": "pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ"
+          "RNMapboxMapsDownloadToken": "sk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOXNubWVuMTAycXgyaXIzZ3ZjZnp0eHEifQ.kA2V-43chZ9GcWxrz0LMWQ",
+          "RNMapboxMapsVersion": "11.11.0"
         }
       ],
       [
         "@youssefhenna/expo-mapbox-navigation",
         {
           "accessToken": "pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ",
-          "mapboxMapsVersion": "^10.1.38"
+          "mapboxMapsVersion": "11.11.0"
         }
       ],
       "expo-secure-store"
