@@ -5,6 +5,8 @@ import { useDriverContext } from "../../context/DriverContext";
 import { ButtonContent, GoOnlineText } from "./styles";
 
 const GoOnlineButton = () => {
+
+  
   const { toggleOnlineStatus, isOnline } = useDriverContext();
 
   return (

@@ -20,60 +20,13 @@ import * as Battery from "expo-battery";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "./types/api";
 import MapboxGL from "@rnmapbox/maps";
+import { DriverContextType, Restaurant, RouteInfo } from "./types/driver";
+import { fetchNearbyRestaurants } from "../services/fetchNearbyRestaurants";
 
 const { width } = Dimensions.get("window");
 const ASPECT_RATIO = width / Dimensions.get("window").height;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-
-// Define context type
-interface DriverContextType {
-  // State
-  isOnline: boolean;
-  isFindingOrders: boolean;
-  showingOrderDetails: boolean;
-  currentLocation: Location.LocationObject | null;
-  initialRegion: Region | null;
-  isLoading: boolean;
-  error: string | null;
-  orderRoute: any[] | null;
-  orderTimer: number;
-  currency: string;
-  earnings: string;
-  orderDetails: {
-    restaurantName: string;
-    time: string;
-    distance: string;
-    address: string;
-    city: string;
-    payment: string;
-  };
-  profileImage: string;
-
-  // Animation values
-  buttonWidth: Animated.Value;
-  buttonHeight: Animated.Value;
-  buttonBottom: Animated.Value;
-  buttonLeft: Animated.Value;
-  buttonBorderRadius: Animated.Value;
-  contentOpacity: Animated.Value;
-  orderDetailsOpacity: Animated.Value;
-  timerProgress: Animated.Value;
-
-  // Methods
-  toggleOnlineStatus: () => Promise<void>;
-  cancelFindingOrders: () => void;
-  acceptOrder: () => void;
-  declineOrder: () => void;
-  handleGoToSettings: () => void;
-  receiveOrder: () => void;
-  animateToFindingOrders: () => void;
-  timerStrokeAnimation: Animated.AnimatedInterpolation<string | number>;
-
-  // Refs
-  mapRef: React.RefObject<MapboxGL.MapView>;
-}
-
 const DriverContext = createContext<DriverContextType | undefined>(undefined);
 
 export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -94,9 +47,15 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const [orderRoute, setOrderRoute] = useState<any[] | null>(null);
   const [orderTimer, setOrderTimer] = useState(15);
 
+  // Add route info state
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+
   // Stats data
   const [currency, setCurrency] = useState("LKR");
   const [earnings, setEarnings] = useState("2,850");
+
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(false);
 
   // Order details
   const [orderDetails, setOrderDetails] = useState({
@@ -107,8 +66,8 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     distance: "0.7 mi",
     payment: "7.80",
     restaurantCoordinates: {
-      latitude: 6.85883,
-      longitude: 80.02470,
+      latitude: 6.8517,
+      longitude: 80.0327,
     },
     customerCoordinates: {
       latitude: 6.910771,
@@ -126,16 +85,56 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const orderDetailsOpacity = useRef(new Animated.Value(0)).current;
   const timerProgress = useRef(new Animated.Value(1)).current;
 
+  // Add route info update method
+  const updateRouteInfo = (info: RouteInfo) => {
+    setRouteInfo(info);
+
+    // Format distance and duration for display in orderDetails if needed
+    const formattedDistance = formatDistance(info.totalDistance);
+    const formattedDuration = formatDuration(info.totalDuration);
+
+    // Update order details with real route information
+    setOrderDetails((prev) => ({
+      ...prev,
+      time: formattedDuration,
+      distance: formattedDistance,
+    }));
+
+    console.log("Route info updated in context:", {
+      distance: formattedDistance,
+      duration: formattedDuration,
+    });
+  };
+
+  // Helper functions to format distance and duration
+  const formatDistance = (meters: number): string => {
+    if (meters < 1000) {
+      return `${Math.round(meters)} m`;
+    } else {
+      // For US audience, convert to miles
+      const miles = meters / 1609.34;
+      return `${miles.toFixed(1)} mi`;
+    }
+  };
+
+  const formatDuration = (seconds: number): string => {
+    if (seconds < 60) {
+      return `${Math.round(seconds)} sec`;
+    } else if (seconds < 3600) {
+      return `${Math.round(seconds / 60)} min`;
+    } else {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.round((seconds % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+  };
+
   // For the timer circular progress
   const timerStrokeAnimation = timerProgress.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
 
-  // Profile image
-  const [profileImage, setProfileImage] = useState<string>(
-    "https://randomuser.me/api/portraits/men/32.jpg"
-  );
 
   const mapRef = useRef<MapboxGL.MapView>(null);
   const appState = useRef(AppState.currentState);
@@ -225,6 +224,35 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
+  // Add this effect to fetch restaurants when driver goes online
+  useEffect(() => {
+    if (isOnline && currentLocation) {
+      fetchNearbyRestaurantsData();
+    } else {
+      setRestaurants([]);
+    }
+  }, [isOnline, currentLocation]);
+
+  // Add this function to fetch nearby restaurants
+  const fetchNearbyRestaurantsData = async () => {
+    if (!currentLocation) return;
+
+    setIsLoadingRestaurants(true);
+    try {
+      const nearbyRestaurants = await fetchNearbyRestaurants(
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude,
+        5000
+      );
+      setRestaurants(nearbyRestaurants);
+    } catch (error) {
+      console.error("Error fetching restaurants:", error);
+      setRestaurants([]);
+    } finally {
+      setIsLoadingRestaurants(false);
+    }
+  };
+
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
     if (
       appState.current.match(/inactive|background/) &&
@@ -275,10 +303,17 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         // Update driver status on the server
         try {
           const driverId = await AsyncStorage.getItem("driverId");
-          if (driverId) {
+          if (driverId && currentLocation) {
             console.log("Updating server with OFFLINE status...");
-            // Uncomment when API is ready:
-            // await api.tracking.goOffline(driverId);
+
+            // Use the correct endpoint and data structure
+            await api.tracking.updateDriverStatus(
+              driverId,
+              "OFFLINE",
+              currentLocation.coords.latitude,
+              currentLocation.coords.longitude
+            );
+
             console.log("Server status updated to OFFLINE");
           }
         } catch (error) {
@@ -291,14 +326,45 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       // Going online
       console.log("Going ONLINE...");
       try {
-        // Start watching location
-        await startLocationUpdates();
+        // First set online state to true immediately
         setIsOnline(true);
-        console.log("Driver is now ONLINE");
 
-        // Animate the button to finding orders style
+        // Also set finding orders state immediately - this is the key change
+        setIsFindingOrders(true);
+
+        // Start the finding orders animation right away
         animateToFindingOrders();
+
+        // Then start location updates in the background
+        await startLocationUpdates();
+
+        // Update driver status on the server
+        try {
+          const driverId = await AsyncStorage.getItem("driverId");
+          if (driverId && currentLocation) {
+            console.log("Updating server with ONLINE status...");
+
+            // Use the correct endpoint and data structure
+            await api.tracking.updateDriverStatus(
+              driverId,
+              "AVAILABLE",
+              currentLocation.coords.latitude,
+              currentLocation.coords.longitude
+            );
+
+            console.log("Server status updated to ONLINE/AVAILABLE");
+          }
+        } catch (error) {
+          console.error("Failed to update online status:", error);
+        }
+
+        console.log("Driver is now ONLINE");
       } catch (err) {
+        // If there's an error, revert states
+        setIsOnline(false);
+        setIsFindingOrders(false);
+        resetButtonToDefault();
+
         console.error("Error going online:", err);
         Alert.alert(
           "Error",
@@ -327,14 +393,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!driverId) {
         console.error("Driver ID not found, cannot update location");
-
-        // For development - provide a fallback ID
-        if (__DEV__) {
-          driverId = "dev-driver-123";
-          await AsyncStorage.setItem("driverId", driverId);
-        } else {
-          return;
-        }
       }
     } catch (error) {
       console.error("Error retrieving driver ID:", error);
@@ -355,7 +413,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
           // Update current location in state
           setCurrentLocation(location);
 
-          // Only log location changes that are significant
+          // Only send location updates if there's significant change
           if (
             !currentLocation ||
             Math.abs(
@@ -370,32 +428,35 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
                 5
               )}, ${location.coords.longitude.toFixed(5)}`
             );
-          }
 
-          try {
-            // Create location data object
-            const locationData = {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              heading: location.coords.heading || 0,
-              speed: location.coords.speed || 0,
-              accuracy: location.coords.accuracy || 0,
-              batteryLevel: batteryLevel ?? undefined,
-              status: "AVAILABLE",
-            };
+            try {
+              // Create the location data object as expected by the API
+              const locationData = {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                accuracy: location.coords.accuracy || 0,
+                heading: location.coords.heading || 0,
+                speed: location.coords.speed || 0,
+                altitude: location.coords.altitude || 0,
+                timestamp: location.timestamp,
+                batteryLevel: batteryLevel || 0,
+              };
 
-            // Send the location update
-            await api.tracking.updateLocation(driverId, locationData);
-          } catch (error: any) {
-            console.error("Failed to update location:", error?.message);
+              // Send location update using the updateLocation endpoint
+              if (driverId) {
+                await api.tracking.updateLocation(driverId, locationData);
+              } else {
+                console.error("Cannot update location: Driver ID is null");
+              }
+            } catch (error: any) {
+              console.error("Failed to update location:", error?.message);
+            }
           }
         }
       );
 
       // Store the subscription so we can remove it later
       setWatchId(locationWatchId);
-
-      console.log("Driver is now ONLINE");
     } catch (error: any) {
       console.error("Error setting up location tracking:", error?.message);
       throw error;
@@ -511,32 +572,43 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Function to receive an order - in production, connect to your API
+  // Update this function in DriverContext.tsx
   const receiveOrder = () => {
     if (!currentLocation) return;
 
-    // Generate route points based on current location
-    const routePoints = generateRoutePoints(currentLocation);
+    // Create a proper route with well-separated points to show the route clearly
+    const restaurantCoordinates = {
+      latitude: currentLocation.coords.latitude + 0.005,
+      longitude: currentLocation.coords.longitude + 0.005,
+    };
 
-    // Set order route for drawing on the map
+    const customerCoordinates = {
+      latitude: currentLocation.coords.latitude + 0.01,
+      longitude: currentLocation.coords.longitude + 0.01,
+    };
+
+    // Set order route for drawing on the map - contains both restaurant and customer locations
+    const routePoints = [
+      restaurantCoordinates, // First point is the restaurant
+      customerCoordinates, // Second point is the customer
+    ];
+
+    console.log("Generated order route points:", routePoints);
     setOrderRoute(routePoints);
+
+    // Reset route info when receiving new order
+    setRouteInfo(null);
 
     // Ensure proper order details with coordinates
     setOrderDetails({
       restaurantName: "Assembly (Quincy)",
       address: "Hancock St & MA-3A, Quincy",
       city: "Quincy, MA",
-      time: "10 min",
-      distance: "0.7 mi",
+      time: "Calculating...", // Will be updated when route info arrives
+      distance: "Calculating...", // Will be updated when route info arrives
       payment: "7.80",
-      // Make sure coordinates are set correctly
-      restaurantCoordinates: {
-        latitude: routePoints[0].latitude,
-        longitude: routePoints[0].longitude,
-      },
-      customerCoordinates: {
-        latitude: routePoints[routePoints.length - 1].latitude,
-        longitude: routePoints[routePoints.length - 1].longitude,
-      },
+      restaurantCoordinates: restaurantCoordinates,
+      customerCoordinates: customerCoordinates,
     });
 
     // Reset the timer
@@ -551,7 +623,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     // Hide finding orders state and show order details
     setIsFindingOrders(false);
     setShowingOrderDetails(true);
-  
+
     // First fade out the current content
     Animated.timing(contentOpacity, {
       toValue: 0,
@@ -568,19 +640,19 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
           useNativeDriver: false,
         }),
         Animated.timing(buttonHeight, {
-          toValue: 350,
+          toValue: 390,
           duration: 400,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         }),
         Animated.timing(buttonBottom, {
-          toValue: 16, 
+          toValue: 16,
           duration: 400,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
         }),
         Animated.timing(buttonLeft, {
-          toValue: 16, 
+          toValue: 16,
           duration: 400,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: false,
@@ -601,6 +673,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
+  // When closing order details, also reset route info
   const closeOrderDetails = (callback?: () => void) => {
     // First fade out order details content
     Animated.timing(orderDetailsOpacity, {
@@ -612,54 +685,16 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       resetButtonToDefault(() => {
         setShowingOrderDetails(false);
         setOrderRoute(null);
+        setRouteInfo(null); // Clear route info
         if (callback) callback();
       });
     });
   };
 
-  // Define interfaces for route points and coordinate types
-  interface RoutePoint {
-    latitude: number;
-    longitude: number;
-  }
-
-  interface Coordinates {
-    latitude: number;
-    longitude: number;
-  }
-
-// In your generateRoutePoints function
-// Define the interface for route point generation result
-interface RoutePoint {
-  latitude: number;
-  longitude: number;
-}
-
-const generateRoutePoints = (currentLocation: Location.LocationObject | null): RoutePoint[] => {
-  if (!currentLocation || !currentLocation.coords) {
-    console.log("Using default route coordinates");
-    // Use Boston area for testing if no current location
-    return [
-      { latitude: 42.3601, longitude: -71.0589 }, // Boston downtown
-      { latitude: 42.3503, longitude: -71.0663 }  // Near Boston area
-    ];
-  }
-
-  const { latitude, longitude } = currentLocation.coords;
-  
-  // Generate a route around the current location
-  console.log(`Generating route from current location: ${latitude}, ${longitude}`);
-  return [
-    { latitude, longitude }, // Start at current location
-    { latitude: latitude + 0.01, longitude: longitude + 0.01 } // End a bit northeast
-  ];
-};
-
   const handleGoToSettings = () => {
     router.push("/(app)/settings");
   };
 
-  
   return (
     <DriverContext.Provider
       value={{
@@ -675,8 +710,11 @@ const generateRoutePoints = (currentLocation: Location.LocationObject | null): R
         orderTimer,
         currency,
         earnings,
-        orderDetails,
-        profileImage,
+        orderDetails,        
+        routeInfo,
+        restaurants,
+        isLoadingRestaurants,
+        fetchNearbyRestaurantsData,
 
         // Animation values
         buttonWidth,
@@ -696,6 +734,7 @@ const generateRoutePoints = (currentLocation: Location.LocationObject | null): R
         handleGoToSettings,
         receiveOrder,
         animateToFindingOrders,
+        updateRouteInfo, // Add route info update method
         timerStrokeAnimation,
 
         // Refs

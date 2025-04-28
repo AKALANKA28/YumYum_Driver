@@ -5,7 +5,6 @@ import { Container } from "./styles";
 import MapDisplay from "./MapDisplay";
 import EarningsCardComponent from "./EarningsCard";
 import ProfileButtonComponent from "./ProfileButton";
-import OnlineStatusBadgeComponent from "./OnlineStatusBadge";
 import OrderButton from "./OrdersButton";
 import ErrorView from "./ErrorView";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -23,14 +22,13 @@ const MapScreen = () => {
     <GestureHandlerRootView style={styles.container}>
       {/* Base Map and UI Elements */}
       <MapDisplay />
-      <EarningsCardComponent />
       <ProfileButtonComponent />
+      <EarningsCardComponent />
       {/* {isOnline && !showingOrderDetails && <OnlineStatusBadgeComponent />} */}
 
       {/* Order Button */}
       <OrderButton />
-      {/* Bottom Sheet */}
-      
+            
       {/* <SwipeableBottomSheet /> */}
 
       {isLoading && <LoadingIndicator />}

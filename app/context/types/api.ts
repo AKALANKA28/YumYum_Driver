@@ -8,11 +8,12 @@ import {
   VehicleData,
   DocumentUploadMetadata
 } from './auth';
+import NetInfo from '@react-native-community/netinfo';
 
 // Single base URL for all environments
 // Update this URL when switching between development, testing, and production
 // const BASE_URL = "http://192.168.221.141:8085/api";
-const BASE_URL = "http://192.168.39.141:8084/api";
+const BASE_URL = "http://192.168.244.141/api";
 
 
 
@@ -23,7 +24,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 10000, // 10 seconds timeout
+  timeout: 30000, // 10 seconds timeout
 });
 
 // Add request interceptor for authentication
@@ -49,22 +50,40 @@ apiClient.interceptors.request.use(
 );
 
 // Add response interceptor for handling common errors
+// Enhanced response interceptor with better error handling
 apiClient.interceptors.response.use(
   (response) => {
+    // Log successful responses for debugging
+    console.log(`API Response: ${response.status} ${response.config.url}`);
     return response;
   },
   async (error) => {
+    // Extract request information for better error logging
+    const requestUrl = error.config?.url || 'unknown';
+    const requestMethod = error.config?.method?.toUpperCase() || 'unknown';
+    
     // Handle network errors
     if (!error.response) {
-      console.error('Network error:', error.message);
+      console.error(`Network error on ${requestMethod} ${requestUrl}:`, error.message);
+      
+      // Check if we have a connection
+      const netInfo = await NetInfo.fetch();
+      if (!netInfo.isConnected) {
+        return Promise.reject({
+          ...error,
+          message: 'No internet connection. Please check your network settings.'
+        });
+      }
+      
       return Promise.reject({
         ...error,
-        message: 'Network error. Please check your connection.'
+        message: 'Unable to reach server. Please try again later.'
       });
     }
     
     // Handle 401 Unauthorized errors (token expired)
     if (error.response && error.response.status === 401) {
+      console.warn('Authentication error: Token may have expired');
       try {
         // Clear stored credentials
         await SecureStore.deleteItemAsync('token');
@@ -72,14 +91,41 @@ apiClient.interceptors.response.use(
       } catch (clearError) {
         console.error('Error clearing credentials:', clearError);
       }
-      
-      // Let the auth context handle the logout
-      // We'll rely on the API call failure for the auth context to detect this
     }
     
-    return Promise.reject(error);
+    // Provide a more descriptive error message based on status code
+    const errorMessage = getErrorMessageFromStatus(error.response.status);
+    
+    console.error(`API Error ${error.response.status} on ${requestMethod} ${requestUrl}:`, 
+      error.response.data?.message || errorMessage);
+    
+    return Promise.reject({
+      ...error,
+      message: error.response.data?.message || errorMessage
+    });
   }
 );
+
+
+
+// Helper function to get a user-friendly error message
+function getErrorMessageFromStatus(status: number): string {
+  switch (status) {
+    case 400:
+      return 'Invalid request. Please check your input.';
+    case 401:
+      return 'Your session has expired. Please log in again.';
+    case 403:
+      return 'You do not have permission to perform this action.';
+    case 404:
+      return 'The requested resource was not found.';
+    case 500:
+      return 'Server error. Please try again later.';
+    default:
+      return `Error ${status}. Please try again later.`;
+  }
+}
+
 
 // Define the API service with organized endpoints by domain
 const api = {
@@ -105,35 +151,172 @@ const api = {
     
     // Driver tracking related endpoints
     tracking: {
-      updateLocation: (driverId: string | number, locationData: LocationData) => 
-        apiClient.post(`/drivers/${driverId}/location`, locationData),
+      updateLocation: async (driverId: string | number, locationData: LocationData) => {
+        try {
+          
+          return await apiClient.post(`/tracking/drivers/${driverId}/location`, locationData);
+        } catch (error) {
+          console.error('Location update failed. Will retry in background.');
+          // Here you could implement offline storage and retry logic
+          throw error;
+        }
+      },
       getDriverLocation: (driverId: string | number) => 
-        apiClient.get(`/drivers/${driverId}/location`),
-      goOnline: (driverId: string | number) => 
-        apiClient.post(`/tracking/driver/${driverId}/status`, { status: 'online' }),
-      goOffline: (driverId: string | number) => 
-        apiClient.post(`/tracking/driver/${driverId}/status`, { status: 'offline' }),
-    },
-  
-    // Order related endpoints - uncomment when needed
-    orders: {
-      getActive: () => 
-        apiClient.get('/orders/active'),
-      getHistory: (page = 0, size = 10) => 
-        apiClient.get(`/orders/history?page=${page}&size=${size}`),
-      accept: (orderId: string | number) => 
-        apiClient.post(`/orders/${orderId}/accept`),
-      decline: (orderId: string | number) => 
-        apiClient.post(`/orders/${orderId}/decline`),
-      pickup: (orderId: string | number) => 
-        apiClient.post(`/orders/${orderId}/pickup`),
-      complete: (orderId: string | number) => 
-        apiClient.post(`/orders/${orderId}/complete`),
-      cancel: (orderId: string | number, reason: string) => 
-        apiClient.post(`/orders/${orderId}/cancel`, { reason }),
-      getDetails: (orderId: string | number) => 
-        apiClient.get(`/orders/${orderId}`),
-    },
+        apiClient.get(`/tracking/drivers/${driverId}/location`),
+      updateDriverStatus: async (driverId: string | number, status: string, latitude: number, longitude: number) => {
+        try {
+          return await apiClient.patch(`/drivers/status`, { 
+            driverId, 
+            status,
+            latitude,
+            longitude
+          });
+        } catch (error: any) {
+          console.error(`Failed to update driver status to ${status}:`, error.message);
+          
+          //still update the UI state even if the API call fails
+          // This lets the user continue using the app, and we can retry in the background
+          
+          // Try again after a short delay if it's a network error
+          if (!error.response) {
+            try {
+              console.log('Attempting to retry status update...');
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              return await apiClient.patch(`/drivers/status`, { 
+                driverId, 
+                status,
+                latitude,
+                longitude
+              });
+            } catch (retryError) {
+              // If retry fails, let the app continue but log the error
+              console.error('Status update retry failed:', retryError);
+            }
+          }
+          
+          throw error;
+        }
+       },
+
+      // Update your createTrip function in the tracking section:
+
+createTrip: async (tripData: any) => {
+  try {
+    // Validate required fields before making the API call
+    if (!tripData.driverId) {
+      throw new Error("Missing driverId");
+    }
+    
+    if (!tripData.customerId) {
+      throw new Error("Missing customerId");
+    }
+    
+    if (!tripData.orderId) {
+      throw new Error("Missing orderId");
+    }
+    
+    // Validate waypoints
+    if (!tripData.waypoints || !Array.isArray(tripData.waypoints) || tripData.waypoints.length < 2) {
+      throw new Error("Trip requires at least two waypoints");
+    }
+    
+    // Check each waypoint for valid coordinates
+    // Define interfaces for waypoint location
+    interface Point {
+      type: "Point";
+      coordinates: [number, number]; // [longitude, latitude]
+    }
+
+    interface WaypointWithCoordinates {
+      latitude?: number;
+      longitude?: number;
+      location?: Point;
+      address?: string;
+      type?: "PICKUP" | "DROPOFF";
+      status?: string;
+      [key: string]: any; // Allow other properties
+    }
+
+    // Validation function with types
+    const validWaypoints = tripData.waypoints.map((wp: WaypointWithCoordinates) => {
+      // Ensure location has valid coordinates
+      if (!wp.location) {
+        wp.location = {
+          type: "Point",
+          coordinates: [0, 0] // Default coordinates if missing
+        };
+      }
+      
+      // If using direct lat/lng properties instead of location
+      if (wp.latitude !== undefined && wp.longitude !== undefined) {
+        wp.location = {
+          type: "Point",
+          coordinates: [wp.longitude, wp.latitude] // MongoDB expects [lng, lat]
+        };
+        
+        // Remove original properties to avoid confusion
+        delete wp.latitude;
+        delete wp.longitude;
+      }
+      
+      // Check if coordinates are null or invalid
+      if (!wp.location.coordinates || 
+          wp.location.coordinates[0] === null || 
+          wp.location.coordinates[1] === null) {
+        console.warn("Invalid coordinates in waypoint, using default values");
+        wp.location.coordinates = [0, 0]; // Default coordinates
+      }
+      
+      // Ensure address exists
+      if (!wp.address) {
+        wp.address = wp.type === "PICKUP" ? "Pickup Location" : "Dropoff Location";
+      }
+      
+      // Ensure status is set
+      if (!wp.status) {
+        wp.status = "PENDING";
+      }
+      
+      return wp;
+    });
+    
+    // Create a valid trip object with all required fields
+    const validTripData = {
+      ...tripData,
+      waypoints: validWaypoints,
+      status: tripData.status || "SCHEDULED",
+      estimatedDistance: tripData.estimatedDistance || 0,
+      estimatedDuration: tripData.estimatedDuration || 0,
+      createdAt: tripData.createdAt || new Date().toISOString()
+    };
+    
+    console.log(`Creating trip with validated data:`, JSON.stringify(validTripData));
+    
+    // Use a single, reliable endpoint
+    const endpoint = '/tracking/trips';
+    const response = await apiClient.post(endpoint, validTripData);
+    
+    console.log('Trip created successfully');
+    return response;
+  } catch (error) {
+    console.error('Trip creation failed:', error);
+    throw error;
+  }
+},
+      
+      // Get trip status
+      getTripStatus: async (orderId: string) => {
+        try {
+          const response = await apiClient.get(`/tracking/trips/${orderId}`);
+          return response.data;
+        } catch (error) {
+          console.error(`Failed to get trip status for order ${orderId}:`, error);
+          throw error;
+        }
+      }
+    
+
+      },
 };
 
 // Export base URL for debugging purposes

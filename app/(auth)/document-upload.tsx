@@ -192,49 +192,6 @@ export default function DocumentUploadScreen() {
 
   const handleSubmitDocuments = async () => {
     try {
-      // const checkImageSize = (uri: string, maxSizeMB: number = 5): Promise<boolean> => {
-      //   return new Promise((resolve) => {
-      //     FileSystem.getInfoAsync(uri)
-      //       .then(fileInfo => {
-      //         if (fileInfo.exists && fileInfo.size) {
-      //           const sizeInMB = fileInfo.size / (1024 * 1024);
-      //           console.log(`Image size: ${sizeInMB.toFixed(2)} MB`);
-      //           if (sizeInMB > maxSizeMB) {
-      //             console.warn(`Image too large: ${sizeInMB.toFixed(2)} MB (max: ${maxSizeMB} MB)`);
-      //             resolve(false);
-      //           } else {
-      //             resolve(true);
-      //           }
-      //         } else {
-      //           console.warn('File info not available');
-      //           resolve(false);
-      //         }
-      //       })
-      //       .catch(err => {
-      //         console.error('Error getting file info:', err);
-      //         resolve(false);
-      //       });
-      //   });
-      // };
-
-      // // Use this in your validation
-      // const [profileSize, licenseSize, regSize, insuranceSize] = await Promise.all([
-      //   checkImageSize(documentValues.profilePhoto, 1), // Max 1MB for profile
-      //   checkImageSize(documentValues.driversLicense, 2), // Max 2MB for license
-      //   checkImageSize(documentValues.vehicleRegistration, 2),
-      //   checkImageSize(documentValues.vehicleInsurance, 2),
-      // ]);
-
-      // if (!profileSize || !licenseSize || !regSize || !insuranceSize) {
-      //   setErrorMessage('One or more images are too large. Please use smaller images.');
-      //   Alert.alert(
-      //     "Image Size Issue",
-      //     "One or more images are too large. Please resize your images to be smaller than 2MB each."
-      //   );
-      //   setIsSubmitting(false);
-      //   return;
-      // }
-
       // Validate required documents
       if (
         !documentValues.driversLicense ||

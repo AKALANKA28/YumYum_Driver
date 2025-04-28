@@ -10,7 +10,8 @@ import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { API_BASE_URL } from "./types/api";
 import FormStorage from "../utils/FormStorage";
-
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 import {
   LoginCredentials,
   Driver,
@@ -381,30 +382,80 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       console.log("AuthContext: Preparing registration data...");
 
-      // Check base64 lengths to verify they are actual data and not placeholders
-      Object.keys(registrationData.documents).forEach((key) => {
+      // Create a deep copy of the registration data
+      const optimizedRegistrationData = {
+        ...registrationData,
+        documents: { ...registrationData.documents },
+      };
+
+      // Optimize all images before sending
+      for (const key of Object.keys(registrationData.documents)) {
         const docType = key as DocumentType;
         if (registrationData.documents[docType]) {
-          const base64Length =
-            registrationData.documents[docType]!.base64Image.length;
-          console.log(`Document ${docType} base64 length:`, base64Length);
+          try {
+            console.log(`Optimizing document: ${docType}`);
 
-          // Validate base64 data is not a placeholder
-          if (
-            base64Length < 100 ||
-            registrationData.documents[docType]!.base64Image.includes(
-              "[BASE64_STRING]"
-            )
-          ) {
-            throw new Error(
-              `Invalid base64 data for document type: ${docType}`
+            // Get the original base64 image
+            const originalBase64 =
+              registrationData.documents[docType]!.base64Image;
+
+            // Validate base64 data is not a placeholder
+            if (
+              originalBase64.length < 100 ||
+              originalBase64.includes("[BASE64_STRING]")
+            ) {
+              throw new Error(
+                `Invalid base64 data for document type: ${docType}`
+              );
+            }
+
+            // Create a data URL from the base64 string
+            const dataUrl = `data:image/jpeg;base64,${originalBase64}`;
+
+            // Create a temporary file path
+            const tempUri = FileSystem.documentDirectory + `temp-image-${Date.now()}.jpg`;
+            // Write the base64 data to the temporary file
+            await FileSystem.writeAsStringAsync(tempUri, originalBase64, { encoding: FileSystem.EncodingType.Base64 });
+            // Use the temp file URI for ImageManipulator
+            const uri = tempUri;
+
+            // Optimize the image
+            const optimizedImage = await ImageManipulator.manipulateAsync(
+              uri,
+              [{ resize: { width: 1200 } }], // Resize to 1200px width
+              { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
             );
+
+            // Convert back to base64
+            const optimizedBase64 = await FileSystem.readAsStringAsync(
+              optimizedImage.uri,
+              { encoding: FileSystem.EncodingType.Base64 }
+            );
+
+            // Update the registration data with optimized image
+            optimizedRegistrationData.documents[docType]!.base64Image =
+              optimizedBase64;
+
+            console.log(
+              `${docType} optimized: ${originalBase64.length} → ${optimizedBase64.length} bytes` +
+                ` (${Math.round(
+                  (optimizedBase64.length / originalBase64.length) * 100
+                )}%)`
+            );
+
+            // Clean up the temporary file
+            await FileSystem.deleteAsync(uri, { idempotent: true });
+          } catch (optError) {
+            console.error(`Error optimizing ${docType}:`, optError);
+            // Continue with original if optimization fails
           }
         }
-      });
+      }
 
-      // Send the original request with real base64 data
-      const response = await api.auth.register(registrationData);
+      console.log("Images optimized, sending registration data...");
+
+      // Send the request with optimized images
+      const response = await api.auth.register(optimizedRegistrationData);
 
       console.log(
         "AuthContext: Registration response received:",
@@ -440,13 +491,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     } catch (error: any) {
       console.error("AuthContext: Registration error:", error);
 
-      // Try to get more error details
       if (error.response) {
-        console.error(
-          "Error response data:",
-          JSON.stringify(error.response.data)
-        );
         console.error("Error response status:", error.response.status);
+        console.error("Error response data:", error.response.data);
       }
 
       const errorMessage =

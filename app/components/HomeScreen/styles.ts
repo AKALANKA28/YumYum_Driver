@@ -18,8 +18,8 @@ export const MapContainer = styled(View)`
 export const EarningsCard = styled(View)`
   position: absolute;
   top: ${Platform.OS === "ios" ? "50px" : "40px"};
-  left: 15px;
-  background-color: ${(props) => props.theme.colors.primary || `#000`};
+  right: 15px;
+  background-color: ${(props) => props.theme.colors.background || `#000`};
   padding: 12px 15px;
   border-radius: 20px;
   shadow-color: #000;
@@ -41,20 +41,27 @@ export const CurrencyText = styled(Text)`
 export const EarningsText = styled(Text)`
   font-size: 23px;
   font-weight: bold;
-  color: ${(props) => props.theme.colors.background};
+  color: ${(props) => props.theme.colors.text};
   margin-left: 8px;
 `;
 
 export const SmallText = styled(Text)`
   font-size: 12px;
-  color: #fff;
+  color: ${(props) => props.theme.colors.text};
 `;
 
-// Profile button in top right
-export const ProfileButton = styled(TouchableOpacity)`
+// Profile container that holds the button and text
+export const ProfileContainer = styled(View)`
   position: absolute;
   top: ${Platform.OS === "ios" ? "50px" : "40px"};
-  right: 15px;
+  left: 15px;
+  flex-direction: row;
+  align-items: center;
+  z-index: 20;
+`;
+
+// Keep the existing ProfileButton but remove position absolute
+export const ProfileButton = styled(TouchableOpacity)`
   background-color: white;
   width: 50px;
   height: 50px;
@@ -69,9 +76,25 @@ export const ProfileButton = styled(TouchableOpacity)`
   overflow: hidden;
 `;
 
+// Keep the existing ProfileImage
 export const ProfileImage = styled(Image)`
   width: 50px;
   height: 50px;
+`;
+
+// Add new styled components for the greeting text
+export const GreetingText = styled(Text)`
+  font-size:14px;
+  color: ${props => props.theme.colors.lightText};
+  font-weight: 500;
+  padding-horizontal: 12px;
+`;
+
+export const NameText = styled(Text)`
+  font-size: 19px;
+  color: ${props => props.theme.colors.text};
+  font-weight: bold;
+  padding-horizontal: 12px;
 `;
 
 // Online status indicator next to profile
@@ -101,7 +124,7 @@ export const StatusText = styled(Text)`
 // Button that expands to the order container
 export const ExpandableButtonContainer = styled(AnimatedView)`
   position: absolute;
-  background-color: ${(props) => props.theme.colors.primary || "#000"};
+  background-color: ${(props) => props.theme.colors.primary || "#fff"};
   border-radius: 30px;
   shadow-color: #000;
   shadow-offset: 0px 2px;
@@ -110,6 +133,7 @@ export const ExpandableButtonContainer = styled(AnimatedView)`
   elevation: 6;
   overflow: hidden;
   align-items: center;
+  zIndex: 100
 `;
 
 // Fix the ButtonContent styled component

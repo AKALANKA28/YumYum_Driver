@@ -199,7 +199,7 @@ export default function LoginScreen() {
                   touched.loginIdentifier ? errors.loginIdentifier : undefined
                 }
                 placeholder="Enter email or phone number"
-                keyboardType="default"
+                keyboardType="email-address"
                 autoCapitalize="none"
               />
 

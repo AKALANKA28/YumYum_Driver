@@ -203,9 +203,8 @@ export default function SettingsScreen() {
           try {
             // Simply call the logout function from AuthContext
             // This already handles clearing storage in a coordinated way
-            console.log("Logging out using AuthContext...");
             await logout();
-
+            router.replace("/(auth)/login");
             // The AuthContext's logout function will:
             // 1. Clear SecureStore items (token and driver)
             // 2. Clear AsyncStorage items (driverId)

@@ -18,10 +18,20 @@ export type MapboxCoordinate = [number, number];
  */
 export interface OrderRouteDisplayProps {
   orderRoute: Coordinate[];
+  driverLocation?: Coordinate | null;
   apiKey?: string;
-  showOptimizedRoute?: boolean;
-  lineColor?: string;
-  lineWidth?: number;
+  onRoutesReady?: (bounds: [number, number, number, number]) => void;
+  onRouteInfoUpdated?: (routeInfo: RouteInfo) => void;
+}
+
+
+export interface RouteInfo {
+  pickupDistance: number; // in meters
+  pickupDuration: number; // in seconds
+  deliveryDistance: number; // in meters
+  deliveryDuration: number; // in seconds
+  totalDistance: number; // in meters
+  totalDuration: number; // in seconds
 }
 
 /**
