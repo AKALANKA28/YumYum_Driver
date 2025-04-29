@@ -3,8 +3,6 @@ import {
   Animated,
   StyleSheet,
   View,
-  TouchableOpacity,
-  Text,
 } from "react-native";
 import { useDriverContext } from "../../context/DriverContext";
 import { ExpandableButtonContainer } from "./styles";
@@ -63,6 +61,25 @@ const OrderButton = () => {
     }
   }, [isFindingOrders, showingOrderDetails]);
 
+  // Auto-trigger order after going online
+  useEffect(() => {
+    let orderTimer: NodeJS.Timeout;
+    
+    if (isOnline && isFindingOrders) {
+      // Set a timer to automatically receive an order after 3 seconds
+      orderTimer = setTimeout(() => {
+        receiveOrder();
+      }, 3000);
+    }
+    
+    // Cleanup timer if component unmounts or state changes
+    return () => {
+      if (orderTimer) {
+        clearTimeout(orderTimer);
+      }
+    };
+  }, [isOnline, isFindingOrders, receiveOrder]);
+
   // Cleanup sound on unmount
   useEffect(() => {
     return () => {
@@ -111,10 +128,7 @@ const OrderButton = () => {
 
       // Set up the onPlaybackStatusUpdate callback to handle looping
       sound.current.setOnPlaybackStatusUpdate((status) => {
-
         if (status.isLoaded && status.didJustFinish) {
-        
-
           // Simply always play again until we reach the max loops
           if (soundLoopCount.current < maxSoundLoops - 1) {
             // Increment loop counter
@@ -125,7 +139,7 @@ const OrderButton = () => {
               if (sound.current) {
                 sound.current.playFromPositionAsync(0);
               }
-            }, 500); // 1 second delay between repeats
+            }, 500); // 0.5 second delay between repeats
           } else {
             // We've reached max loops, stop playing
             setIsSoundPlaying(false);
@@ -140,18 +154,6 @@ const OrderButton = () => {
       setIsSoundPlaying(false);
     }
   };
-  // TEMPORARY: Function to test the full flow
-  const testFullFlow = () => {
-    // 1. First go online
-    if (!isOnline) {
-      toggleOnlineStatus();
-
-      // 2. Wait a bit then simulate finding an order
-      setTimeout(() => {
-        receiveOrder();
-      }, 3000);
-    }
-  };
 
   return (
     <ExpandableButtonContainer
@@ -164,13 +166,6 @@ const OrderButton = () => {
         overflow: "hidden",
       }}
     >
-      {/* TEMPORARY: Testing button */}
-      {!isOnline && (
-        <TouchableOpacity style={styles.testButton} onPress={testFullFlow}>
-          <Text style={{ color: "white", fontSize: 10 }}>Test Flow</Text>
-        </TouchableOpacity>
-      )}
-
       {/* Button Content with improved transition */}
       <Animated.View style={[styles.contentContainer, { opacity: fadeAnim }]}>
         {isFindingOrders ? (
@@ -199,16 +194,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     justifyContent: "center",
     alignItems: "center",
-  },
-  // TEMPORARY: Test button styling
-  testButton: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    backgroundColor: "#f23f07",
-    padding: 5,
-    borderRadius: 10,
-    zIndex: 100,
   },
 });
 

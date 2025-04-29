@@ -19,11 +19,9 @@ import {
   OrderInfoRow,
   OrderTimeDistance,
   OrderAddressText,
-  AcceptOrderButton,
   AcceptOrderButtonText,
 } from "./styles";
 import { router } from "expo-router";
-import Svg, { Circle } from "react-native-svg";
 
 interface OrderDetailsProps {
   opacity: Animated.Value;
@@ -36,15 +34,9 @@ const OrderDetails = ({
   onAcceptOrder,
   onDeclineOrder,
 }: OrderDetailsProps) => {
-  const {
-    declineOrder,
-    orderTimer,
-    timerStrokeAnimation,
-    orderDetails,
-    acceptOrder,
-    routeInfo,
-  } = useDriverContext();
-  
+  const { declineOrder, orderTimer, orderDetails, acceptOrder, routeInfo } =
+    useDriverContext();
+
   // Format distance for display
   const formatDistance = (meters: number | undefined): string => {
     if (!meters) return "N/A";
@@ -54,7 +46,7 @@ const OrderDetails = ({
       return `${(meters / 1000).toFixed(1)} km`;
     }
   };
-  
+
   // Format duration for display
   const formatDuration = (seconds: number | undefined): string => {
     if (!seconds) return "N/A";
@@ -70,12 +62,20 @@ const OrderDetails = ({
   };
 
   // Get pickup and delivery distances
-  const pickupDistanceFormatted = routeInfo ? formatDistance(routeInfo.pickupDistance) : "Calculating...";
-  const deliveryDistanceFormatted = routeInfo ? formatDistance(routeInfo.deliveryDistance) : "Calculating...";
-  
+  const pickupDistanceFormatted = routeInfo
+    ? formatDistance(routeInfo.pickupDistance)
+    : "Calculating...";
+  const deliveryDistanceFormatted = routeInfo
+    ? formatDistance(routeInfo.deliveryDistance)
+    : "Calculating...";
+
   // Get total distance and duration
-  const totalDistanceFormatted = routeInfo ? formatDistance(routeInfo.totalDistance) : orderDetails?.distance || "Calculating...";
-  const totalDurationFormatted = routeInfo ? formatDuration(routeInfo.totalDuration) : orderDetails?.time || "Calculating...";
+  const totalDistanceFormatted = routeInfo
+    ? formatDistance(routeInfo.totalDistance)
+    : orderDetails?.distance || "Calculating...";
+  const totalDurationFormatted = routeInfo
+    ? formatDuration(routeInfo.totalDuration)
+    : orderDetails?.time || "Calculating...";
 
   // Handler functions that call both context functions and props
   const handleAccept = () => {
@@ -88,92 +88,50 @@ const OrderDetails = ({
     declineOrder();
     if (onDeclineOrder) onDeclineOrder();
   };
-  
-  // Calculate circle dimensions for the timer
-  const size = 52; // Size of the whole timer component
-  const strokeWidth = 3;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  
-  // Create animation ref for the timer circle
-  const timerAnimation = useRef(new Animated.Value(0)).current;
-  
-  // Calculate the stroke dashoffset based on the timer progress
-  // FIXED: Changed the interpolation to correctly reduce the orange arc
-  const strokeDashoffset = timerAnimation.interpolate({
-    inputRange: [0, 15],
-    outputRange: [circumference, 0], // Start with full circle and reduce to 0
+
+  // Create animation for the button width
+  const timerWidthAnim = useRef(new Animated.Value(1)).current;
+
+  // Calculate width based on animation value
+  const timerWidth = timerWidthAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
   });
-  
+
   // Set up the animation when component mounts
   useEffect(() => {
-    // Reset animation value to starting position
-    timerAnimation.setValue(0);
-    
-    // Start the countdown animation for 15 seconds
-    Animated.timing(timerAnimation, {
-      toValue: 15,
-      duration: 15000,
-      easing: Easing.linear, // Use linear easing for consistent countdown
-      useNativeDriver: true,
+    // Reset animation to full width
+    timerWidthAnim.setValue(1);
+
+    // Use timing animation with smoother easing
+    Animated.timing(timerWidthAnim, {
+      toValue: 0,
+      duration: 15000, // 15 seconds
+      easing: Easing.linear, // Linear animation for consistent speed
+      useNativeDriver: false, // Must be false for width animations
     }).start();
-    
-    // Optional: Add a timer completion callback
+
+    // Auto-decline after 15 seconds
     const timerTimeout = setTimeout(() => {
-      console.log('Timer completed');
-      // You could automatically dismiss here if desired
-      // handleDecline();
+      console.log("Timer completed");
+      handleDecline();
     }, 15000);
-    
+
     // Clean up timeout on unmount
     return () => clearTimeout(timerTimeout);
   }, []);
 
-  // Create an AnimatedCircle component
-  const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
   return (
     <OrderDetailsContent style={{ opacity }}>
-      {/* Content Container with proper padding */}
       <View style={styles.contentContainer}>
-        {/* Timer around close button */}
-        <View style={styles.closeButtonContainer}>
-          {/* SVG Timer Ring */}
-          <Svg width={size} height={size} style={styles.timerRing}>
-            {/* Background circle */}
-            <Circle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              stroke="rgba(255, 255, 255, 0.2)"
-              strokeWidth={strokeWidth}
-              fill="transparent"
-            />
-            {/* Animated progress circle - FIXED */}
-            <AnimatedCircle
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              stroke="#FF5722"
-              strokeWidth={strokeWidth}
-              fill="transparent"
-              strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              rotation="-90"
-              origin={`${size / 2}, ${size / 2}`}
-            />
-          </Svg>
-          
-          {/* Close button - smaller than the timer ring */}
-          <TouchableOpacity style={styles.closeButton} onPress={handleDecline}>
-            <Ionicons name="close" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
+        {/* Simplified close button */}
+        <TouchableOpacity style={styles.closeButton} onPress={handleDecline}>
+          <Ionicons name="close" size={24} color="white" />
+        </TouchableOpacity>
 
         {/* Payment Amount */}
         <View style={styles.paymentContainer}>
-          <Text style={styles.paymentAmount}>+ ${orderDetails?.payment}</Text>
+          <Text style={styles.paymentAmount}>+ Rs{orderDetails?.payment}</Text>
           <Text style={styles.paymentNote}>Includes expected tip</Text>
         </View>
 
@@ -183,11 +141,12 @@ const OrderDetails = ({
             <MaterialIcons
               name="access-time"
               size={18}
-              color="white"
+              color="black"
               style={styles.timeIcon}
             />
             <OrderTimeDistance>
-              {totalDurationFormatted} <Text style={styles.separator}>|</Text> {totalDistanceFormatted} total
+              {totalDurationFormatted} <Text style={styles.separator}>|</Text>{" "}
+              {totalDistanceFormatted} total
             </OrderTimeDistance>
           </View>
         </OrderInfoRow>
@@ -196,84 +155,86 @@ const OrderDetails = ({
         <View style={styles.locationsContainer}>
           {/* Route visualization with vertical line */}
           <View style={styles.routeVisualization}>
-            {/* Restaurant dot */}
             <View style={styles.routeStart}>
-              <Ionicons name="ellipse" size={8} color="white" />
+              <Ionicons name="ellipse" size={8} color="black" />
             </View>
 
-            {/* Vertical line */}
             <View style={styles.verticalLine}>
-              {/* Using dots to create a dashed vertical line */}
               {[...Array(4)].map((_, i) => (
                 <Entypo
                   key={i}
                   name="dot-single"
                   size={12}
-                  color="rgba(255, 255, 255, 0.6)"
+                  color="rgba(0, 0, 0, 0.6)"
                 />
               ))}
             </View>
 
-            {/* Destination square */}
             <View style={styles.routeEnd}>
-              <FontAwesome name="square" size={8} color="white" />
+              <FontAwesome name="square" size={8} color="black" />
             </View>
           </View>
 
           {/* Location details */}
           <View style={styles.locationsDetails}>
-            {/* Restaurant */}
             <Text style={styles.subText}>Pickup Location</Text>
             <View style={styles.locationRow}>
-              <Text style={styles.locationText}>
+              <OrderAddressText>
                 {orderDetails?.restaurantName}
-              </Text>
+              </OrderAddressText>
               <Text style={styles.locationText}>{pickupDistanceFormatted}</Text>
             </View>
 
-            {/* Space that aligns with vertical line */}
             <View style={styles.locationSpacing} />
 
-            {/* Delivery address */}
             <Text style={styles.subText}>Deliver</Text>
 
             <View style={styles.locationRow}>
               <OrderAddressText>{orderDetails?.address}</OrderAddressText>
-              <Text style={styles.locationText}>{deliveryDistanceFormatted}</Text>
+              <Text style={styles.locationText}>
+                {deliveryDistanceFormatted}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Accept button */}
-        <AcceptOrderButton onPress={handleAccept}>
-          <AcceptOrderButtonText>Accept</AcceptOrderButtonText>
-        </AcceptOrderButton>
+        {/* Accept button container with timer wrapper */}
+        <View style={styles.acceptButtonContainer}>
+          {/* Base button */}
+          <View style={styles.acceptButton} />
+
+          {/* Timer overlay - reduces from right to left */}
+          <Animated.View
+            style={[styles.timerOverlay, { width: timerWidth }]}
+            pointerEvents="none"
+          />
+
+          {/* Touchable area with text on top of everything */}
+          <TouchableOpacity
+            style={styles.acceptTouchable}
+            onPress={handleAccept}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.acceptButtonText}>Accept</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </OrderDetailsContent>
   );
 };
 
-// Updated styles to accommodate the timer
+// Updated styles
 const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
     width: "100%",
+    position: "relative",
   },
-  closeButtonContainer: {
+  closeButton: {
     position: "absolute",
     top: 16,
     right: 16,
     zIndex: 10,
-    width: 52, // Larger to accommodate timer ring
-    height: 52, // Larger to accommodate timer ring
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  timerRing: {
-    position: "absolute",
-    transform: [{ rotateZ: "-90deg" }],
-  },
-  closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -287,7 +248,7 @@ const styles = StyleSheet.create({
   paymentAmount: {
     fontSize: 52,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#000",
   },
   paymentNote: {
     fontSize: 14,
@@ -304,7 +265,7 @@ const styles = StyleSheet.create({
   timeDistanceRow: {
     justifyContent: "flex-start",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    borderTopColor: "rgba(37, 37, 37, 0.07)",
     paddingHorizontal: 0,
     paddingVertical: 12,
   },
@@ -316,7 +277,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   separator: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "rgba(39, 39, 39, 0.1)",
     paddingHorizontal: 6,
     fontWeight: "normal",
   },
@@ -324,9 +285,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    borderTopColor: "rgba(37, 37, 37, 0.07)",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: "rgba(37, 37, 37, 0.07)",
     marginTop: 5,
   },
   routeVisualization: {
@@ -345,7 +306,7 @@ const styles = StyleSheet.create({
   verticalLine: {
     alignItems: "center",
     marginVertical: 2,
-    height: 40,
+    height: 60,
   },
   locationsDetails: {
     flex: 1,
@@ -361,12 +322,52 @@ const styles = StyleSheet.create({
     height: 24,
   },
   locationText: {
-    color: "#fff",
+    color: "#000",
     fontSize: 18,
   },
   subText: {
     color: "#666666",
     fontSize: 14,
+  },
+  acceptButtonContainer: {
+    position: "relative",
+    marginTop: 16,
+    height: 56,
+    overflow: "hidden",
+    borderRadius: 28,
+  },
+  acceptButton: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: 56,
+    backgroundColor: "rgba(255, 87, 34, 0.3)",
+    borderRadius: 28,
+    zIndex: 1,
+  },
+  acceptTouchable: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: 56,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 3, // Higher than both the button and overlay
+  },
+  acceptButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  timerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0, // Position from right edge for right-to-left animation
+    height: "100%",
+    backgroundColor: "rgb(255, 86, 34)",
+    zIndex: 2,
   },
 });
 

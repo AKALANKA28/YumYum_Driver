@@ -64,14 +64,14 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     city: "Quincy, MA",
     time: "10 min",
     distance: "0.7 mi",
-    payment: "7.80",
+    payment: "780.00",
     restaurantCoordinates: {
       latitude: 6.8517,
       longitude: 80.0327,
     },
     customerCoordinates: {
-      latitude: 6.910771,
-      longitude: 79.885107,
+      latitude: 6.8731942,
+      longitude: 80.017573,
     },
   });
 
@@ -242,7 +242,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       const nearbyRestaurants = await fetchNearbyRestaurants(
         currentLocation.coords.latitude,
         currentLocation.coords.longitude,
-        5000
+        10000
       );
       setRestaurants(nearbyRestaurants);
     } catch (error) {
@@ -284,11 +284,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const toggleOnlineStatus = async () => {
-    console.log(
-      "Toggling online status, current state:",
-      isOnline ? "ONLINE" : "OFFLINE"
-    );
-
+    
     if (isOnline) {
       // Going offline
       console.log("Going OFFLINE...");
@@ -601,12 +597,12 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Ensure proper order details with coordinates
     setOrderDetails({
-      restaurantName: "Assembly (Quincy)",
-      address: "Hancock St & MA-3A, Quincy",
-      city: "Quincy, MA",
+      restaurantName: "Savoury Bites, High Level Road, Homagama",
+      address: "Habarakada-Ranala Road, 10654",
+      city: "Godagama",
       time: "Calculating...", // Will be updated when route info arrives
       distance: "Calculating...", // Will be updated when route info arrives
-      payment: "7.80",
+      payment: "372.00",
       restaurantCoordinates: restaurantCoordinates,
       customerCoordinates: customerCoordinates,
     });
@@ -702,6 +698,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         isOnline,
         isFindingOrders,
         showingOrderDetails,
+        setIsLoading,
         currentLocation,
         initialRegion,
         isLoading,

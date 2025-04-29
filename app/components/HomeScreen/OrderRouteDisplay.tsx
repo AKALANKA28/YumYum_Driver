@@ -117,10 +117,13 @@ const OrderRouteDisplay: React.FC<OrderRouteDisplayProps> = ({
     // If we have all route coordinates and bounds notification hasn't been sent yet, calculate bounds
     if ((pickupCoordinates || deliveryCoordinates) && !boundsNotified.current && onRoutesReady) {
       try {
-        // Combine all coordinates to find bounds
+        // Add all points to the coordinates list
         const allCoordinates = [
-          ...(pickupCoordinates || []),
-          ...(deliveryCoordinates || []),
+          ...(driverPoint ? [driverPoint] : []),  // Include driver position
+          ...(restaurantPoint ? [restaurantPoint] : []),  // Include restaurant position
+          ...(customerPoint ? [customerPoint] : []),  // Include customer position
+          ...(pickupCoordinates || []),   // Include all pickup route points
+          ...(deliveryCoordinates || []),  // Include all delivery route points
         ];
         
         if (allCoordinates.length > 1) {
@@ -131,15 +134,16 @@ const OrderRouteDisplay: React.FC<OrderRouteDisplayProps> = ({
           let maxLat = -Infinity;
           
           allCoordinates.forEach(coord => {
+            if (!coord) return; // Skip null/undefined coordinates
             minLng = Math.min(minLng, coord[0]);
             maxLng = Math.max(maxLng, coord[0]);
             minLat = Math.min(minLat, coord[1]);
             maxLat = Math.max(maxLat, coord[1]);
           });
           
-          // Add padding (about 20% on each side)
-          const lngPadding = (maxLng - minLng) * 0.2;
-          const latPadding = (maxLat - minLat) * 0.2;
+          // Add padding (30% on each side for better visibility)
+          const lngPadding = (maxLng - minLng) * 0.3;
+          const latPadding = (maxLat - minLat) * 0.3;
           
           // Create bounding box with padding
           const bounds: [number, number, number, number] = [
@@ -154,14 +158,14 @@ const OrderRouteDisplay: React.FC<OrderRouteDisplayProps> = ({
           // Notify parent component to update camera once
           onRoutesReady(bounds);
           boundsNotified.current = true;
-        } else {
-          console.warn("Not enough coordinates to calculate bounds");
         }
       } catch (err) {
         console.error("Error calculating route bounds:", err);
       }
     }
-  }, [pickupCoordinates, deliveryCoordinates, onRoutesReady]);
+  }, [pickupCoordinates, deliveryCoordinates, driverPoint, restaurantPoint, customerPoint, onRoutesReady]);
+
+
   const fetchRoutes = async () => {
     if (!driverPoint || !restaurantPoint || !customerPoint) return;
 

@@ -7,7 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Alert,
+
   SafeAreaView,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -25,6 +25,7 @@ import {
   DocumentUploadMetadata,
   RegistrationRequest,
 } from "../context/types/auth";
+import SubmissionSuccessScreen from "../components/auth/SubmissionSuccessScreen";
 
 const SafeArea = styled(SafeAreaView)`
   flex: 1;
@@ -147,6 +148,7 @@ export default function DocumentUploadScreen() {
 
   const { registerDriver, authState, clearError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const scrollViewRef = React.useRef<ScrollView>(null);
 
@@ -190,163 +192,138 @@ export default function DocumentUploadScreen() {
     }
   };
 
-  const handleSubmitDocuments = async () => {
-    try {
-      // Validate required documents
-      if (
-        !documentValues.driversLicense ||
-        !documentValues.vehicleRegistration ||
-        !documentValues.profilePhoto ||
-        !documentValues.vehicleInsurance
-      ) {
-        // Add vehicle insurance to required docs
-        setErrorMessage("All document photos are required");
-        Alert.alert(
-          "Missing Documents",
-          "Please upload all required documents including vehicle insurance"
-        );
-        return;
-      }
-      setIsSubmitting(true);
-      setErrorMessage("");
-
-      if (authState.error) {
-        clearError();
-      }
-
-      console.log("Starting document upload with values:", documentValues);
-
-      // Get current date for formatting timestamps
-      const now = new Date();
-      const futureDate = new Date(now);
-      futureDate.setFullYear(futureDate.getFullYear() + 4); // License valid for 4 years
-
-      // Format date as yyyy-MM-ddTHH:mm:ss for LocalDateTime
-      const formatDate = (date: Date): string => {
-        // Format to match Java's LocalDateTime
-        const isoString = date.toISOString();
-        return isoString.slice(0, 19); // Remove milliseconds and timezone
-      };
-
-      const expiryDateString = formatDate(futureDate);
-      console.log("License expiry date:", expiryDateString);
-
-      // Convert images to base64
-      const [
-        profilePhotoBase64,
-        driversLicenseBase64,
-        vehicleRegistrationBase64,
-        vehicleInsuranceBase64,
-      ] = await Promise.all([
-        convertImageToBase64(documentValues.profilePhoto),
-        convertImageToBase64(documentValues.driversLicense),
-        convertImageToBase64(documentValues.vehicleRegistration),
-        convertImageToBase64(documentValues.vehicleInsurance),
-      ]);
-
-      console.log("Successfully converted images to base64");
-
-      // Check base64 lengths to verify they are actual data and not placeholders
-      console.log("Profile photo base64 length:", profilePhotoBase64.length);
-      console.log("License base64 length:", driversLicenseBase64.length);
-      console.log(
-        "Registration base64 length:",
-        vehicleRegistrationBase64.length
-      );
-      console.log("Insurance base64 length:", vehicleInsuranceBase64.length);
-
-      // IMPORTANT: Create documents object with proper format - NO data URL prefix
-      const documents: { [key in DocumentType]?: DocumentUploadMetadata } = {
-        [DocumentType.PROFILE_PHOTO]: {
-          base64Image: profilePhotoBase64,
-          fileName: "profile-photo.jpg",
-          contentType: "image/jpeg",
-        },
-        [DocumentType.DRIVING_LICENSE]: {
-          base64Image: driversLicenseBase64,
-          fileName: "driving-license.jpg",
-          contentType: "image/jpeg",
-          expiryDate: expiryDateString,
-        },
-        [DocumentType.VEHICLE_REGISTRATION]: {
-          base64Image: vehicleRegistrationBase64,
-          fileName: "vehicle-registration.jpg",
-          contentType: "image/jpeg",
-        },
-        [DocumentType.VEHICLE_INSURANCE]: {
-          base64Image: vehicleInsuranceBase64,
-          fileName: "vehicle-insurance.jpg",
-          contentType: "image/jpeg",
-          expiryDate: expiryDateString,
-        },
-      };
-
-      // Create registration request with real document data
-      const registrationRequest: RegistrationRequest = {
-        username:
-          personalInfo.firstName.toLowerCase() +
-          personalInfo.lastName.toLowerCase(),
-        firstName: personalInfo.firstName,
-        lastName: personalInfo.lastName,
-        email: personalInfo.email,
-        password: personalInfo.password,
-        phoneNumber: personalInfo.phoneNumber,
-        licenseNumber:
-          personalInfo.licenseNumber ||
-          `DL-${Math.floor(Math.random() * 1000000)}`,
-        vehicleType: vehicleInfo.vehicleType,
-        vehicleBrand: vehicleInfo.brand,
-        vehicleModel: vehicleInfo.model,
-        vehicleYear: vehicleInfo.year,
-        licensePlate: vehicleInfo.licensePlate,
-        vehicleColor: vehicleInfo.color,
-        documents: documents, // Use the documents object with real base64 data
-      };
-
-      // SEPARATE logging payload - Create a deep copy first to avoid modifying the original
-      const loggingPayload = JSON.parse(JSON.stringify(registrationRequest));
-
-      // Replace base64 strings with placeholders IN THE COPY
-      Object.keys(loggingPayload.documents).forEach((key) => {
-        const docType = key as DocumentType;
-        if (loggingPayload.documents[docType]) {
-          loggingPayload.documents[docType].base64Image = "[BASE64_STRING]";
-        }
-      });
-
-      console.log("Submitting registration with payload:");
-      console.log(JSON.stringify(loggingPayload, null, 2));
-
-      // Send the ORIGINAL registrationRequest with real base64 data
-      await registerDriver(registrationRequest);
-
-      console.log("Registration successful!");
-
-      // If successful, navigate to success screen or dashboard
-      router.replace("/login");
-    } catch (error: any) {
-      console.error("Registration error:", error);
-
-      // Try to get more error details
-      if (error.response) {
-        console.error("Error response data:", error.response.data);
-        console.error("Error response status:", error.response.status);
-      }
-
-      setErrorMessage(
-        error.message ||
-          "There was an error submitting your documents. Please try again."
-      );
-
-      Alert.alert(
-        "Registration Error",
-        error.message ||
-          "There was an error submitting your documents. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
+// Only updating the relevant part (handleSubmitDocuments function)
+const handleSubmitDocuments = async () => {
+  try {
+    // Validate required documents
+    if (
+      !documentValues.driversLicense ||
+      !documentValues.vehicleRegistration ||
+      !documentValues.profilePhoto ||
+      !documentValues.vehicleInsurance
+    ) {
+      // Add vehicle insurance to required docs
+      setErrorMessage("All document photos are required");
+      // Alert.alert(
+      //   "Missing Documents",
+      //   "Please upload all required documents including vehicle insurance"
+      // );
+      return;
     }
-  };
+    
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    if (authState.error) {
+      clearError();
+    }
+
+    console.log("Starting document upload with values:", documentValues);
+
+    // Get current date for formatting timestamps
+    const now = new Date();
+    const futureDate = new Date(now);
+    futureDate.setFullYear(futureDate.getFullYear() + 4); // License valid for 4 years
+
+    // Format date as yyyy-MM-ddTHH:mm:ss for LocalDateTime
+    const formatDate = (date: Date): string => {
+      // Format to match Java's LocalDateTime
+      const isoString = date.toISOString();
+      return isoString.slice(0, 19); // Remove milliseconds and timezone
+    };
+
+    const expiryDateString = formatDate(futureDate);
+
+    // Convert images to base64
+    const [
+      profilePhotoBase64,
+      driversLicenseBase64,
+      vehicleRegistrationBase64,
+      vehicleInsuranceBase64,
+    ] = await Promise.all([
+      convertImageToBase64(documentValues.profilePhoto),
+      convertImageToBase64(documentValues.driversLicense),
+      convertImageToBase64(documentValues.vehicleRegistration),
+      convertImageToBase64(documentValues.vehicleInsurance),
+    ]);
+
+    // Create documents object with proper format
+    const documents: { [key in DocumentType]?: DocumentUploadMetadata } = {
+      [DocumentType.PROFILE_PHOTO]: {
+        base64Image: profilePhotoBase64,
+        fileName: "profile-photo.jpg",
+        contentType: "image/jpeg",
+      },
+      [DocumentType.DRIVING_LICENSE]: {
+        base64Image: driversLicenseBase64,
+        fileName: "driving-license.jpg",
+        contentType: "image/jpeg",
+        expiryDate: expiryDateString,
+      },
+      [DocumentType.VEHICLE_REGISTRATION]: {
+        base64Image: vehicleRegistrationBase64,
+        fileName: "vehicle-registration.jpg",
+        contentType: "image/jpeg",
+      },
+      [DocumentType.VEHICLE_INSURANCE]: {
+        base64Image: vehicleInsuranceBase64,
+        fileName: "vehicle-insurance.jpg",
+        contentType: "image/jpeg",
+        expiryDate: expiryDateString,
+      },
+    };
+
+    // Create registration request with real document data
+    const registrationRequest: RegistrationRequest = {
+      username:
+        personalInfo.firstName.toLowerCase() +
+        personalInfo.lastName.toLowerCase(),
+      firstName: personalInfo.firstName,
+      lastName: personalInfo.lastName,
+      email: personalInfo.email,
+      password: personalInfo.password,
+      phoneNumber: personalInfo.phoneNumber,
+      licenseNumber:
+        personalInfo.licenseNumber ||
+        `DL-${Math.floor(Math.random() * 1000000)}`,
+      vehicleType: vehicleInfo.vehicleType,
+      vehicleBrand: vehicleInfo.brand,
+      vehicleModel: vehicleInfo.model,
+      vehicleYear: vehicleInfo.year,
+      licensePlate: vehicleInfo.licensePlate,
+      vehicleColor: vehicleInfo.color,
+      documents: documents, // Use the documents object with real base64 data
+    };
+
+    // Send the ORIGINAL registrationRequest with real base64 data
+    await registerDriver(registrationRequest);
+    
+    // Show success screen instead of navigating directly to login
+    setIsSubmitted(true);
+    
+  } catch (error: any) {
+    console.error("Registration error:", error);
+
+    // Try to get more error details
+    if (error.response) {
+      console.error("Error response data:", error.response.data);
+      console.error("Error response status:", error.response.status);
+    }
+
+    setErrorMessage(
+      error.message ||
+        "There was an error submitting your documents. Please try again."
+    );
+
+    // Alert.alert(
+    //   "Registration Error",
+    //   error.message ||
+    //     "There was an error submitting your documents. Please try again."
+    // );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleGoBack = () => {
     router.back();
@@ -382,6 +359,9 @@ export default function DocumentUploadScreen() {
 
   return (
     <SafeArea>
+         {isSubmitted ? (
+      <SubmissionSuccessScreen />
+    ) : (
       <Container
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
@@ -503,6 +483,7 @@ export default function DocumentUploadScreen() {
           </ButtonContainer>
         </ContentContainer>
       </Container>
+      )}
     </SafeArea>
   );
 }

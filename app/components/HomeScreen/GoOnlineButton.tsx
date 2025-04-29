@@ -9,8 +9,15 @@ const GoOnlineButton = () => {
   
   const { toggleOnlineStatus, isOnline } = useDriverContext();
 
+    // Handle the button press with animation logic
+    const handlePress = () => {
+      // Use the existing toggleOnlineStatus function
+      toggleOnlineStatus();
+    };
+  
+
   return (
-    <TouchableOpacity onPress={toggleOnlineStatus} style={styles.container}>
+    <TouchableOpacity onPress={handlePress} style={styles.container}>
       <ButtonContent isOnline={isOnline}>
         <FontAwesome5 name="power-off" size={19} color="white" />
         <GoOnlineText>{isOnline ? "Go Offline" : "Go Online"}</GoOnlineText>
@@ -27,3 +34,4 @@ const styles = StyleSheet.create({
 });
 
 export default GoOnlineButton;
+

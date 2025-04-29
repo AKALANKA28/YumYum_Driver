@@ -28,13 +28,13 @@ const NavigationView = ({
 
   // Define restaurant and customer coordinates from context or fallbacks
   const restaurantCoordinates = orderDetails?.currentRoute?.restaurantCoordinates || { 
-    latitude: 6.8517, 
-    longitude: 80.0327 
+    latitude:6.8489171, 
+    longitude: 80.0199555 
   };
   
   const customerCoordinates = orderDetails?.currentRoute?.customerCoordinates || { 
-    latitude: 6.910771, 
-    longitude: 79.885107 
+    latitude: 6.87319, 
+    longitude: 80.01757
   };
 
   // Use driver location from props or fallback to default

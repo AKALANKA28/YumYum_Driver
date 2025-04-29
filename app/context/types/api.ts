@@ -13,7 +13,7 @@ import NetInfo from '@react-native-community/netinfo';
 // Single base URL for all environments
 // Update this URL when switching between development, testing, and production
 // const BASE_URL = "http://192.168.221.141:8085/api";
-const BASE_URL = "http://192.168.244.141/api";
+const BASE_URL = "http://192.168.49.141/api";
 
 
 

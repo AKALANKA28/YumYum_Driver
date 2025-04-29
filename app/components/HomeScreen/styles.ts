@@ -86,12 +86,13 @@ export const ProfileImage = styled(Image)`
 export const GreetingText = styled(Text)`
   font-size:14px;
   color: ${props => props.theme.colors.lightText};
-  font-weight: 500;
+  font-weight: 600;
+  margin-bottom: 5px;
   padding-horizontal: 12px;
 `;
 
 export const NameText = styled(Text)`
-  font-size: 19px;
+  font-size: 20px;
   color: ${props => props.theme.colors.text};
   font-weight: bold;
   padding-horizontal: 12px;
@@ -124,7 +125,7 @@ export const StatusText = styled(Text)`
 // Button that expands to the order container
 export const ExpandableButtonContainer = styled(AnimatedView)`
   position: absolute;
-  background-color: ${(props) => props.theme.colors.primary || "#fff"};
+  background-color: ${(props) => props.theme.colors.background || "#000"};
   border-radius: 30px;
   shadow-color: #000;
   shadow-offset: 0px 2px;
@@ -161,6 +162,7 @@ export const GoOnlineText = styled(Text)`
 export const FindingOrdersContent = styled(View)`
   flex-direction: row;
   align-items: center;
+  background-color: ${(props) => props.theme.colors.primary || "#000"};
   justify-content: center;
   width: 100%;
   height: 100%;
@@ -223,7 +225,7 @@ export const OrderInfoRow = styled(View)`
 `;
 
 export const OrderTimeDistance = styled(Text)`
-  color: white;
+  color: black;
   font-size: 22px;
   font-weight: bold;
   text-align: center;
@@ -236,9 +238,10 @@ export const OrderAddressContainer = styled(View)`
 `;
 
 export const OrderAddressText = styled(Text)`
-  color: white;
+  color: black;
   font-size: 16px;
   text-align: center;
+  font-weight: bold;
 `;
 
 export const OrderAddressSubText = styled(Text)`
@@ -280,7 +283,7 @@ export const TimerCircle = styled(TouchableOpacity)`
 `;
 
 export const TimerText = styled(Text)`
-  color: white;
+  color: black;
   font-size: 16px;
   font-weight: bold;
 `;

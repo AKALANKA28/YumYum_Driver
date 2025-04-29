@@ -1,12 +1,12 @@
 import React, { forwardRef, useMemo, useState, useRef, useEffect } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   PanResponder,
   Animated,
-  Dimensions
+  Dimensions,
 } from "react-native";
 import BottomSheet, {
   BottomSheetView,
@@ -14,7 +14,7 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BUTTON_WIDTH = SCREEN_WIDTH - 48; // Accounting for horizontal padding
 const THUMB_WIDTH = 60;
 const SLIDE_THRESHOLD = BUTTON_WIDTH * 0.7; // User needs to slide 70% to confirm
@@ -25,6 +25,8 @@ interface DestinationBottomSheetProps {
   onCancel: () => void;
   orderDetails?: {
     price?: string;
+    distance?: string;
+    duration?: string;
     pickup?: {
       time?: string;
       items?: string[];
@@ -42,12 +44,12 @@ const DestinationBottomSheet = forwardRef<
   DestinationBottomSheetProps
 >(({ navigationMode, onConfirm, orderDetails = {} }, ref) => {
   // Two snap points - one for header only, one for full content
-  const snapPoints = useMemo(() => ["10%", "55%"], []);
+  const snapPoints = useMemo(() => ["10%", "45%"], []);
   const isPickupMode = navigationMode === "pickup";
-  
+
   // Add state for checkbox
   const [isChecked, setIsChecked] = useState(false);
-  
+
   // Animation values
   const slideAnimation = useRef(new Animated.Value(0)).current;
   const [isSliding, setIsSliding] = useState(false);
@@ -58,34 +60,37 @@ const DestinationBottomSheet = forwardRef<
     slideAnimation.setValue(0);
     setSlideComplete(false);
   }, [navigationMode, isChecked]);
-  
+
   // Set up PanResponder for slide gesture
   const panResponder = useMemo(() => {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      
+
       // Track the sliding movement
       onPanResponderGrant: () => {
         if (isPickupMode && !isChecked) return; // Don't allow sliding if checkbox not checked
         setIsSliding(true);
       },
-      
+
       // Update position while sliding
       onPanResponderMove: (_, gestureState) => {
         if (isPickupMode && !isChecked) return; // Don't allow sliding if checkbox not checked
-        
+
         // Calculate how far the user has dragged
-        const dx = Math.max(0, Math.min(gestureState.dx, BUTTON_WIDTH - THUMB_WIDTH));
+        const dx = Math.max(
+          0,
+          Math.min(gestureState.dx, BUTTON_WIDTH - THUMB_WIDTH)
+        );
         slideAnimation.setValue(dx);
       },
-      
+
       // Handle release of the slider
       onPanResponderRelease: (_, gestureState) => {
         if (isPickupMode && !isChecked) return; // Don't allow sliding if checkbox not checked
-        
+
         setIsSliding(false);
-        
+
         // If slid past threshold, trigger success
         if (gestureState.dx >= SLIDE_THRESHOLD) {
           Animated.timing(slideAnimation, {
@@ -105,29 +110,41 @@ const DestinationBottomSheet = forwardRef<
             useNativeDriver: false,
           }).start();
         }
-      }
+      },
     });
   }, [slideAnimation, isChecked, isPickupMode, onConfirm]);
 
   // Mock data based on the image
+  // const mockOrderDetails = {
+  //   price: orderDetails.price || "$ 15.00",
+  //   pickup: {
+  //     time: orderDetails.pickup?.time || "10:10 Pm",
+  //     items: orderDetails.pickup?.items || [
+  //       "Margherita pizza",
+  //     ],
+  //   },
+  //   customer: {
+  //     name: orderDetails.customer?.name || "Lisa C. Torrez",
+  //     image: orderDetails.customer?.image,
+  //     code: orderDetails.customer?.code || "CUS-4582", // Special code for verification
+  //   },
+  // };
+
   const mockOrderDetails = {
-    price: orderDetails.price || "$ 15.00",
+    price: "RS 2772.00",
+    distance: orderDetails.distance || "1.8 km",
+    duration: orderDetails.duration || "8 min",
     pickup: {
-      time: orderDetails.pickup?.time || "10:10 Pm",
-      items: orderDetails.pickup?.items || [
-        "Margherita pizza",
-        "Pepperoni Pizza",
-        "Hawaiian Pizza",
-        "Cheese Pizza",
-      ],
+      time: "07:10 Pm",
+      items: ["Margherita pizza"],
     },
     customer: {
-      name: orderDetails.customer?.name || "Lisa C. Torrez",
+      name: "Savindu C.",
       image: orderDetails.customer?.image,
-      code: orderDetails.customer?.code || "YUM-4582", // Special code for verification
+      code: "CUS-4582", // Special code for verification
     },
   };
-  
+
   // Toggle checkbox state
   const handleCheckboxToggle = () => {
     setIsChecked(!isChecked);
@@ -144,7 +161,7 @@ const DestinationBottomSheet = forwardRef<
       index={0}
       snapPoints={snapPoints}
       handleIndicatorStyle={styles.handleIndicator}
-      enablePanDownToClose={false} 
+      enablePanDownToClose={false}
       backgroundStyle={styles.bottomSheetBackground}
       style={styles.bottomSheet}
     >
@@ -168,10 +185,30 @@ const DestinationBottomSheet = forwardRef<
         </View>
 
         <View style={styles.subheader}>
-          <Text style={styles.subheaderText}>
-            {`${mockOrderDetails.pickup.items.length} Items • 15 Min total`}
+          <View style={styles.infoRow}>
+            <Ionicons
+              name="location"
+              size={16}
+              color="black"
+              style={styles.infoIcon}
+            />
+            <Text style={styles.subheaderText}>
+              {mockOrderDetails.distance}
+            </Text>
+
+            <Ionicons
+              name="time"
+              size={16}
+              color="black"
+              style={[styles.infoIcon, { marginLeft: 12 }]}
+            />
+            <Text style={styles.subheaderText}>
+              {mockOrderDetails.duration}
+            </Text>
+          </View>
+          <Text style={styles.subheaderRightText}>
+            {`${mockOrderDetails.pickup.items.length} Items`}
           </Text>
-          <Text style={styles.subheaderRightText}>This dash</Text>
         </View>
       </View>
 
@@ -199,15 +236,17 @@ const DestinationBottomSheet = forwardRef<
 
           {/* Show different buttons based on mode */}
           {isPickupMode ? (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.checkboxContainer}
               onPress={handleCheckboxToggle}
               activeOpacity={0.7}
             >
-              <View style={[
-                styles.checkboxCircle, 
-                isChecked ? styles.checkboxChecked : styles.checkboxUnchecked
-              ]}>
+              <View
+                style={[
+                  styles.checkboxCircle,
+                  isChecked ? styles.checkboxChecked : styles.checkboxUnchecked,
+                ]}
+              >
                 {isChecked && (
                   <Ionicons name="checkmark" size={24} color="#fff" />
                 )}
@@ -240,41 +279,40 @@ const DestinationBottomSheet = forwardRef<
         </View>
 
         {/* Slide-to-confirm button */}
-        <View 
+        <View
           style={[
             styles.slideButtonContainer,
-            isDisabled ? styles.slideButtonDisabled : null
+            isDisabled ? styles.slideButtonDisabled : null,
           ]}
         >
           {/* Progress bar that fills as you slide */}
-          <Animated.View 
-            style={[
-              styles.slideProgress, 
-              { width: progressWidth }
-            ]} 
+          <Animated.View
+            style={[styles.slideProgress, { width: progressWidth }]}
           />
-          
+
           {/* Text instructions */}
-          <Text style={[
-            styles.slideText,
-            isDisabled ? styles.slideTextDisabled : null
-          ]}>
+          <Text
+            style={[
+              styles.slideText,
+              isDisabled ? styles.slideTextDisabled : null,
+            ]}
+          >
             {isPickupMode ? "Slide After Pickup" : "Slide to Confirm Delivery"}
           </Text>
-          
+
           {/* Thumb you drag */}
-          <Animated.View 
+          <Animated.View
             {...(isDisabled ? {} : panResponder.panHandlers)}
             style={[
               styles.slideThumb,
               { left: thumbLeft },
-              isDisabled ? styles.slideThumbDisabled : null
+              isDisabled ? styles.slideThumbDisabled : null,
             ]}
           >
-            <MaterialIcons 
-              name="chevron-right" 
-              size={24} 
-              color={isDisabled ? "#ccc" : "#fff"} 
+            <MaterialIcons
+              name="chevron-right"
+              size={24}
+              color={isDisabled ? "#ccc" : "#fff"}
             />
           </Animated.View>
         </View>
@@ -293,6 +331,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  infoIcon: {
+    marginRight: 4,
   },
   contentContainer: {
     paddingHorizontal: 24,
@@ -328,7 +373,7 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   headerTitleWithPrice: {
-    maxWidth: '70%', 
+    maxWidth: "70%",
   },
   headerPrice: {
     fontSize: 24,
@@ -410,7 +455,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   checkboxChecked: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#000",
   },
   checkboxUnchecked: {
     backgroundColor: "#E0E0E0",
@@ -448,53 +493,52 @@ const styles = StyleSheet.create({
   },
 
   slideButtonContainer: {
-    position: 'relative',
+    position: "relative",
     height: 55,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#E0E0E0",
     backgroundColor: "#f5f5f5",
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
   },
   slideButtonDisabled: {
     backgroundColor: "#F5F5F5",
     borderColor: "#E0E0E0",
   },
   slideProgress: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 86, 34, 0.36)', // Light orange background
+    backgroundColor: "rgba(255, 86, 34, 0.36)", // Light orange background
   },
   slideText: {
     fontSize: 18,
     fontWeight: "500",
     color: "#000",
-    textAlign: 'center',
-    width: '100%',
+    textAlign: "center",
+    width: "100%",
   },
   slideTextDisabled: {
     color: "#BDBDBD",
   },
   slideThumb: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
-    top:1,
+    top: 1,
     width: 50,
     height: 50,
     borderRadius: 20,
     backgroundColor: "#FF5722",
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 2,
   },
   slideThumbDisabled: {
     backgroundColor: "#E0E0E0",
   },
-
 });
 
 export default DestinationBottomSheet;

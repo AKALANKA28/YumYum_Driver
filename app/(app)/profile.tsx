@@ -95,7 +95,7 @@ export default function ProfileScreen() {
   const { authState } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(
-    "https://via.placeholder.com/120x120?text=Profile"
+    "https://i.iheart.com/v3/re/new_assets/6737853f52258f89312c3863?ops=contain(1480,0)"
   );
 
   // Form state - would be pre-filled with user's information in a real app

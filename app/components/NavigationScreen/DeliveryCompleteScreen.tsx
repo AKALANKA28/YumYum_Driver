@@ -68,25 +68,25 @@ const DeliveryCompleteScreen = ({
         <View style={styles.paymentRow}>
           <Text style={styles.paymentLabel}>Peak Pay</Text>
           <Text style={styles.paymentAmount}>
-            ${orderDetails.payment.peakPay.toFixed(2)}
+            Rs.00.00
           </Text>
         </View>
         <View style={styles.paymentRow}>
           <Text style={styles.paymentLabel}>Base Pay</Text>
           <Text style={styles.paymentAmount}>
-            ${orderDetails.payment.basePay.toFixed(2)}
+            Rs.00.00
           </Text>
         </View>
         <View style={styles.paymentRow}>
           <Text style={styles.paymentLabel}>Customer Tip</Text>
           <Text style={styles.paymentAmount}>
-            ${orderDetails.payment.tip.toFixed(2)}
+            Rs.00.00
           </Text>
         </View>
         <View style={[styles.paymentRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>
-            ${orderDetails.payment.total.toFixed(2)}
+            Rs.2772.00
           </Text>
         </View>
       </View>
@@ -95,12 +95,12 @@ const DeliveryCompleteScreen = ({
         <Text style={styles.gotItButtonText}>Got it</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity 
+      {/* <TouchableOpacity 
         style={styles.rescheduleButton} 
         onPress={onReschedule || handleGotItPress}
       >
         <Text style={styles.rescheduleButtonText}>Reschedule</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 };

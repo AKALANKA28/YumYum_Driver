@@ -1,14 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  Animated,
-} from "react-native";
+import { View, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import Mapbox from "@rnmapbox/maps";
-import { Feather, MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router"; // Import the router
+import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { useDriverContext } from "../../context/DriverContext";
 import { MapContainer } from "./styles";
@@ -16,13 +10,16 @@ import OrderRouteDisplay from "./OrderRouteDisplay";
 import { RouteInfo } from "../../context/types/driver";
 import { Restaurant } from "./types/restaurantDisplay";
 import RestaurantLocations from "./RestaurantLocations";
+import { useLoading } from "@/app/context/LoadingContext";
+import BlurredMapOverlay from "./BlurredMapOverlay";
+import EarningsCardComponent from "./EarningsCard";
+import { Coordinate } from "./types/routeDisplay";
 
-// Important: Initialize Mapbox with your access token
+// Initialize Mapbox with access token
 Mapbox.setAccessToken(
   "pk.eyJ1IjoiYWthbGFua2EtIiwiYSI6ImNtOW1jNHFnaDA2eHAybHMzYTQya2dyMzIifQ.KVriyRUmtMCiOxWwHGGrtQ"
 );
 
-// Main MapDisplay component
 const MapDisplay = () => {
   const {
     initialRegion,
@@ -32,23 +29,41 @@ const MapDisplay = () => {
     restaurants,
     isOnline,
     showingOrderDetails,
+    setIsLoading: setDriverContextLoading,
   } = useDriverContext();
 
+  const { logLoadingState } = useLoading();
+
+  // Map state
   const [mapReady, setMapReady] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  const mapboxRef = useRef<Mapbox.MapView>(null)
+  // Overlay animation
+  const overlayOpacity = useRef(new Animated.Value(1)).current;
+  const [overlayZIndex, setOverlayZIndex] = useState(10);
+
+  // Refs
+  const mapboxRef = useRef<Mapbox.MapView>(null);
   const cameraRef = useRef<Mapbox.Camera>(null);
+  const isAdjustingCamera = useRef(false);
 
+  // Map view state
   const [followUserMode, setFollowUserMode] = useState<Mapbox.UserTrackingMode>(
     Mapbox.UserTrackingMode.Follow
   );
   const [isShowingFullRoute, setIsShowingFullRoute] = useState(false);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
 
-  // Create animation for pulsing effect
+  const [customOrderRoute, setCustomOrderRoute] = useState<Coordinate[]>([
+    // Initial coordinates
+    { latitude: 6.8489171, longitude: 80.0199555 }, // Restaurant coordinates
+    { latitude: 6.8731942, longitude: 80.017573 }, // Customer coordinates
+  ]);
+
+  // Pulsing animation for user location marker
   const pulseAnim = useRef(new Animated.Value(0.8)).current;
 
-  // Start pulsing animation when component mounts
+  // Initialize pulsing animation
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -66,36 +81,132 @@ const MapDisplay = () => {
     ).start();
   }, []);
 
-  // Handle map ready state
+  // Set initial loading state
+  useEffect(() => {
+    logLoadingState("map", false);
+  }, []);
+
   const onMapReady = () => {
     console.log("Map is ready");
     setMapReady(true);
+
+    // Indicate that the map has loaded
+    logLoadingState("map", false);
   };
 
-  // Initialize map camera when map is ready and we have initial region
+  // When component unmounts, ensure we reset the loading state
   useEffect(() => {
-    if (mapReady && initialRegion && cameraRef.current) {
+    return () => {
+      logLoadingState("map", false);
+    };
+  }, []);
+
+  // Initial camera setup
+  useEffect(() => {
+    if (
+      mapReady &&
+      initialRegion &&
+      cameraRef.current &&
+      !initialLoadComplete
+    ) {
       try {
         cameraRef.current.setCamera({
           centerCoordinate: [initialRegion.longitude, initialRegion.latitude],
-          zoomLevel: 14,
+          zoomLevel: 12,
           animationDuration: 0,
         });
       } catch (error) {
-        console.log("Camera setup error:", error);
+        // Silent fail
       }
     }
-  }, [mapReady, initialRegion]);
+  }, [mapReady, initialRegion, initialLoadComplete]);
 
-  // Update camera when user location changes but only if we're in follow mode
-  // and not showing full route
+  // Update camera when user location becomes available
+  useEffect(() => {
+    if (
+      mapReady &&
+      currentLocation &&
+      cameraRef.current &&
+      initialLoadComplete &&
+      !isOnline
+    ) {
+      try {
+        cameraRef.current.setCamera({
+          centerCoordinate: [
+            currentLocation.coords.longitude,
+            currentLocation.coords.latitude,
+          ],
+          zoomLevel: 12,
+          animationDuration: 500,
+        });
+      } catch (error) {
+        // Silent fail
+      }
+    }
+  }, [currentLocation, mapReady, initialLoadComplete, isOnline]);
+
+  // Handle online/offline transitions
+  useEffect(() => {
+    if (isOnline) {
+      // Fade out overlay when user goes online
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        setOverlayZIndex(-1);
+      });
+
+      // Zoom in to user location
+      if (currentLocation && cameraRef.current && mapReady) {
+        cameraRef.current.setCamera({
+          centerCoordinate: [
+            currentLocation.coords.longitude,
+            currentLocation.coords.latitude,
+          ],
+          zoomLevel: 16,
+          pitch: 30,
+          animationDuration: 1000,
+        });
+      }
+    } else {
+      // Show overlay when offline
+      setOverlayZIndex(10);
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+
+      // Zoom out to show broader area
+      if (cameraRef.current && mapReady) {
+        const coordinates = initialRegion
+          ? [initialRegion.longitude, initialRegion.latitude]
+          : currentLocation
+          ? [currentLocation.coords.longitude, currentLocation.coords.latitude]
+          : [0, 0];
+
+        cameraRef.current.setCamera({
+          centerCoordinate: coordinates,
+          zoomLevel: 12,
+          pitch: 0,
+          animationDuration: 1000,
+        });
+      }
+    }
+  }, [isOnline, currentLocation, initialRegion, mapReady]);
+
+  // Update camera based on user location changes
+  // Update this existing useEffect in your MapDisplay.tsx
   useEffect(() => {
     if (
       mapReady &&
       currentLocation &&
       cameraRef.current &&
       followUserMode === Mapbox.UserTrackingMode.Follow &&
-      !isShowingFullRoute
+      !isShowingFullRoute &&
+      isOnline &&
+      initialLoadComplete
     ) {
       try {
         cameraRef.current.setCamera({
@@ -104,81 +215,83 @@ const MapDisplay = () => {
             currentLocation.coords.latitude,
           ],
           animationMode: "flyTo",
-          zoomLevel: 16,
-          pitch: 30,
+          zoomLevel: orderRoute ? 17 : 15, // Higher zoom when navigating
+          pitch: orderRoute ? 60 : 30, // More pitch when navigating
+          animationDuration: 500,
         });
       } catch (error) {
-        console.log("Camera update error:", error);
+        // Silent fail
       }
     }
-  }, [mapReady, currentLocation, followUserMode, isShowingFullRoute]);
+  }, [
+    mapReady,
+    currentLocation,
+    followUserMode,
+    isShowingFullRoute,
+    isOnline,
+    initialLoadComplete,
+    orderRoute, // Added orderRoute dependency
+  ]);
 
-  // Add a ref to track if we're already showing a route
-  const isAdjustingCamera = useRef(false);
-
-  // Handle when routes are ready to show on map
+  // Handle route display
+  // Handle route display
   const handleRoutesReady = (bounds: [number, number, number, number]) => {
     if (cameraRef.current && mapReady && !isAdjustingCamera.current) {
       try {
-        // Set flag to prevent multiple adjustments at once
         isAdjustingCamera.current = true;
-
-        // Set state to prevent user location updates from changing the camera
         setIsShowingFullRoute(true);
 
-        // Fit the camera to show the entire route
+        // More padding and smoother animation
         cameraRef.current.fitBounds(
-          [bounds[0], bounds[1]], // Southwest coordinates
-          [bounds[2], bounds[3]], // Northeast coordinates
-          40, // Padding
-          1000 // Animation duration
+          [bounds[0], bounds[1]],
+          [bounds[2], bounds[3]],
+          50, // Increase padding from 20 to 50
+          2000 // Slower animation (2 seconds instead of 1)
         );
 
-        console.log(
-          "Camera adjusted to show full route - will remain for 15 seconds"
-        );
-
-        // After a delay, allow user location updates to control camera again if needed
-        // Increased from 3 seconds to 15 seconds
+        // Wait a bit longer before returning to follow mode
         setTimeout(() => {
           setIsShowingFullRoute(false);
-          isAdjustingCamera.current = false; // Reset the flag
-          console.log("Resuming normal camera tracking");
-        }, 15000); // 15 seconds
+          isAdjustingCamera.current = false;
+
+          // Return to driver-focused view after showing route
+          if (
+            currentLocation &&
+            followUserMode !== Mapbox.UserTrackingMode.Follow
+          ) {
+            cameraRef.current?.setCamera({
+              centerCoordinate: [
+                currentLocation.coords.longitude,
+                currentLocation.coords.latitude,
+              ],
+              zoomLevel: 15, // Good zoom level for navigation
+              pitch: 45, // More angled view for navigation
+              animationDuration: 1500,
+            });
+          }
+        }, 8000); // Reduced from 15000 to 8000 ms (8 seconds is enough to see the route)
       } catch (error) {
-        console.log("Error adjusting camera to route:", error);
-        isAdjustingCamera.current = false; // Reset the flag on error
+        isAdjustingCamera.current = false;
       }
     }
   };
 
-  // Function to toggle between follow modes
   const toggleFollowMode = () => {
     setFollowUserMode((prevMode) =>
       prevMode === Mapbox.UserTrackingMode.Follow
-        ? Mapbox.UserTrackingMode.FollowWithHeading
+        ? Mapbox.UserTrackingMode.FollowWithCourse
         : Mapbox.UserTrackingMode.Follow
     );
   };
+  // Navigation handlers
+  const handleNavigateToOrders = () => router.push("/(app)/orders");
+  const handleNavigateToStats = () => router.push("/(app)/earnings");
+  const handleNavigateToSettings = () => router.push("/(app)/settings");
 
-  // Router navigation handlers
-  const handleNavigateToOrders = () => {
-    router.push("/(app)/orders");
-  };
+  // Route info update handler
+  const handleRouteInfoUpdated = (info: RouteInfo) => updateRouteInfo(info);
 
-  const handleNavigateToStats = () => {
-    router.push("/(app)/earnings");
-  };
-
-  const handleNavigateToSettings = () => {
-    router.push("/(app)/settings");
-  };
-
-  // Handler for route information updates
-  const handleRouteInfoUpdated = (info: RouteInfo) => {
-    updateRouteInfo(info);
-  };
-
+  // Restaurant press handler
   const handleRestaurantPress = (restaurant: Restaurant) => {
     if (cameraRef.current) {
       cameraRef.current.setCamera({
@@ -192,6 +305,11 @@ const MapDisplay = () => {
     }
   };
 
+  const updateOrderRoute = (newRoute: Coordinate[]) => {
+    setCustomOrderRoute(newRoute);
+  };
+
+  // Show empty view if no initial region
   if (!initialRegion) {
     return <View style={{ flex: 1 }} />;
   }
@@ -209,13 +327,16 @@ const MapDisplay = () => {
       >
         <Mapbox.Camera
           ref={cameraRef}
-          zoomLevel={16}
+          zoomLevel={isOnline ? 16 : 12}
           animationDuration={600}
           followUserLocation={
             followUserMode !== Mapbox.UserTrackingMode.Follow &&
-            !isShowingFullRoute
+            !isShowingFullRoute &&
+            isOnline
           }
-          followUserMode={followUserMode}
+          followUserMode={
+            isOnline ? followUserMode : Mapbox.UserTrackingMode.FollowWithCourse
+          }
         />
 
         {/* Hide the default user location */}
@@ -275,30 +396,55 @@ const MapDisplay = () => {
 
         {mapReady && orderRoute && currentLocation && (
           <OrderRouteDisplay
-            orderRoute={orderRoute}
-            driverLocation={currentLocation.coords}
+            orderRoute={customOrderRoute}
+            driverLocation={{
+              latitude: currentLocation.coords.latitude,
+              longitude: currentLocation.coords.longitude,
+            }}
             onRoutesReady={handleRoutesReady}
             onRouteInfoUpdated={handleRouteInfoUpdated}
           />
         )}
       </Mapbox.MapView>
 
-      {/* Action buttons - MOVED OUTSIDE the MapView but still inside MapContainer */}
-      <View style={styles.actionButtonsPanel}>
+      {/* Blurred overlay */}
+      <BlurredMapOverlay
+        opacity={overlayOpacity}
+        zIndex={overlayZIndex}
+        mapReady={mapReady}
+      />
+
+      {/* Action buttons - shown only when online */}
+      {isOnline && (
+        <>
+          <EarningsCardComponent />
+
+          <View style={styles.actionButtonsPanel}>
+            <TouchableOpacity
+              style={styles.circleButton}
+              onPress={toggleFollowMode}
+              accessibilityLabel="Toggle Location Tracking Mode"
+            >
+              <MaterialIcons
+                name={
+                  followUserMode === Mapbox.UserTrackingMode.Follow
+                    ? "my-location"
+                    : "location-searching"
+                }
+                size={24}
+                color="#000"
+              />
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+      <View style={styles.ButtonsPanel}>
         <TouchableOpacity
           style={styles.circleButton}
           onPress={handleNavigateToOrders}
-          accessibilityLabel="Audio Settings"
+          accessibilityLabel="Orders"
         >
-          <Feather name="triangle" size={20} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.circleButton}
-          onPress={handleNavigateToSettings}
-          accessibilityLabel="App Settings"
-        >
-          <MaterialIcons name="settings" size={20} color="#fff" />
+          <Ionicons name="list-sharp" size={24} color="#000" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -306,23 +452,15 @@ const MapDisplay = () => {
           onPress={handleNavigateToStats}
           accessibilityLabel="View Statistics"
         >
-          <MaterialIcons name="align-vertical-bottom" size={20} color="#fff" />
+          <Ionicons name="wallet-outline" size={25} color="#000" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.circleButton}
-          onPress={toggleFollowMode}
-          accessibilityLabel="Toggle Location Tracking Mode"
+          onPress={handleNavigateToSettings}
+          accessibilityLabel="App Settings"
         >
-          <MaterialIcons
-            name={
-              followUserMode === Mapbox.UserTrackingMode.Follow
-                ? "my-location"
-                : "location-searching"
-            }
-            size={22}
-            color="white"
-          />
+          <Ionicons name="settings-outline" size={25} color="#000" />
         </TouchableOpacity>
       </View>
     </MapContainer>
@@ -331,6 +469,13 @@ const MapDisplay = () => {
 
 const styles = StyleSheet.create({
   actionButtonsPanel: {
+    position: "absolute",
+    bottom: 215,
+    right: 16,
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  ButtonsPanel: {
     position: "absolute",
     bottom: 30,
     right: 16,
@@ -341,7 +486,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 30,
-    backgroundColor: "black",
+    backgroundColor: "white",
     justifyContent: "center",
     alignItems: "center",
     marginVertical: 6,
@@ -370,7 +515,7 @@ const styles = StyleSheet.create({
     width: 13,
     height: 13,
     borderRadius: 10,
-    backgroundColor: "#FF5722", // Orange color
+    backgroundColor: "#FF5722",
     borderWidth: 1,
     borderColor: "#FF5722",
     shadowColor: "#000",

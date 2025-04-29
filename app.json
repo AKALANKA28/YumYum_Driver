@@ -4,7 +4,7 @@
     "slug": "YumYum_Driver_APP",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo2.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -12,10 +12,15 @@
       "supportsTablet": true
       
     },
+    "splash": {
+      "image": "./assets/images/logo2.png",
+      "backgroundColor": "#FF5722",
+      "resizeMode": "contain"
+    },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/logo2.png",
+        "backgroundColor": "#FF5722"
       },
        "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -35,10 +40,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/logo2.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#FF5722"
         }
       ],
       [

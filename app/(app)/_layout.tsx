@@ -1,46 +1,34 @@
-// import { Stack } from 'expo-router';
-
-// export default function AppLayout() {
-//   return (
-//     <Stack
-//       screenOptions={{
-//         headerShown: false,
-//       }}
-//     >
-//       <Stack.Screen name="home" />
-//     </Stack>
-//   );
-// }
-
-import React from "react";
-import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme, DefaultTheme } from "styled-components/native";
+import React, { useEffect } from "react";
 import { Stack } from "expo-router";
-import DriverContextProvider from "../context/DriverContext";
+import { DriverContextProvider } from "../context/DriverContext";
+import { useLoading } from "../context/LoadingContext";
+import * as SplashScreen from "expo-splash-screen";
 
-declare module "styled-components" {
-  export interface DefaultTheme {
-    colors: {
-      primary: string;
-      border: string;
-      background: string;
-      secondary: string;
-      error: string;
-    };
-  }
-}
+// Flag to track if we've already hidden the splash screen
+let splashHidden = false;
 
 export default function AppLayout() {
-  const theme = useTheme();
+  const { isLoading } = useLoading();
+
+  // Handle splash screen visibility based on loading state
+  useEffect(() => {
+    if (!isLoading && !splashHidden) {
+      // Only try to hide the splash screen once
+      splashHidden = true;
+      
+      // Hide the splash screen - this should only happen when map is ready
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isLoading]);
 
   return (
     <DriverContextProvider>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, animation: "none" }}>
         <Stack.Screen name="home" options={{ headerShown: false }} />
         <Stack.Screen name="orders" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="navigation" options={{ headerShown: false }} />
       </Stack>
     </DriverContextProvider>
   );

@@ -45,6 +45,7 @@ export interface DriverContextType {
   currentLocation: Location.LocationObject | null;
   initialRegion: Region | null;
   isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
   error: string | null;
   orderRoute: any[] | null;
   orderTimer: number;
@@ -69,8 +70,6 @@ export interface DriverContextType {
     city: string;
     payment: string;
   };
-  profileImage: string;
-
   restaurants: Restaurant[];
   isLoadingRestaurants: boolean;
   fetchNearbyRestaurantsData: () => Promise<void>;
@@ -99,8 +98,6 @@ export interface DriverContextType {
   // Refs
   mapRef: React.RefObject<MapboxGL.MapView>;
   routeInfo: RouteInfo | null;
-  user: User;
-
 
 }
 

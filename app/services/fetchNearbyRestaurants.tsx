@@ -18,82 +18,115 @@ interface Restaurant {
 const MOCK_RESTAURANTS: Restaurant[] = [
   {
     id: "1",
-    name: "Burger King",
+    name: "The Gallery Café",
     coordinates: {
-      latitude: 0,  // Will be dynamically set
-      longitude: 0, // Will be dynamically set
+      latitude: 6.8485,
+      longitude: 80.0042,
     },
-    category: "Fast Food",
+    category: "Café/Western",
     isOpen: true,
     rating: 4.2,
   },
   {
     id: "2",
-    name: "Pizza Hut",
+    name: "Dinemore",
     coordinates: {
-      latitude: 0,
-      longitude: 0,
+      latitude: 6.8419,
+      longitude: 80.0037,
     },
-    category: "Italian",
-    isOpen: true,
-    rating: 4.0,
-  },
-  {
-    id: "3",
-    name: "Subway",
-    coordinates: {
-      latitude: 0,
-      longitude: 0,
-    },
-    category: "Sandwiches",
+    category: "Fast Food",
     isOpen: true,
     rating: 3.8,
   },
   {
-    id: "4",
-    name: "Taco Bell",
+    id: "3",
+    name: "Royal Chinese Restaurant",
     coordinates: {
-      latitude: 0,
-      longitude: 0,
+      latitude: 6.8402,
+      longitude: 80.0105,
     },
-    category: "Mexican",
-    isOpen: false,
-    rating: 3.5,
+    category: "Chinese",
+    isOpen: true,
+    rating: 4.0,
+  },
+  {
+    id: "4",
+    name: "Kottu Labs",
+    coordinates: {
+      latitude: 6.8476,
+      longitude: 80.0061,
+    },
+    category: "Sri Lankan (Kottu)",
+    isOpen: true,
+    rating: 4.3,
   },
   {
     id: "5",
-    name: "Starbucks",
+    name: "Cafe Kumbuk",
     coordinates: {
-      latitude: 0,
-      longitude: 0,
+      latitude: 6.8501,
+      longitude: 80.0083,
     },
-    category: "Coffee",
+    category: "Healthy/Organic",
     isOpen: true,
     rating: 4.5,
   },
   {
     id: "6",
-    name: "McDonald's",
+    name: "Pilawoos Homagama",
     coordinates: {
-      latitude: 0,
-      longitude: 0,
+      latitude: 6.8407,
+      longitude: 80.0029,
     },
-    category: "Fast Food",
+    category: "Sri Lankan (Short Eats)",
+    isOpen: true,
+    rating: 4.1,
+  },
+  {
+    id: "7",
+    name: "Dominos Pizza Homagama",
+    coordinates: {
+      latitude: 6.8398,
+      longitude: 80.0112,
+    },
+    category: "Pizza",
     isOpen: true,
     rating: 3.9,
   },
   {
-    id: "7",
-    name: "KFC",
+    id: "8",
+    name: "Bake House",
     coordinates: {
-      latitude: 0,
-      longitude: 0,
+      latitude: 6.8430,
+      longitude: 80.0055,
     },
-    category: "Chicken",
+    category: "Bakery/Snacks",
+    isOpen: true,
+    rating: 4.0,
+  },
+  {
+    id: "9",
+    name: "Rasa Bojun",
+    coordinates: {
+      latitude: 6.8389,
+      longitude: 80.0128,
+    },
+    category: "Sri Lankan (Traditional)",
+    isOpen: true,
+    rating: 4.4,
+  },
+  {
+    id: "10",
+    name: "McDonald's Homagama",
+    coordinates: {
+      latitude: 6.8415,
+      longitude: 80.0090,
+    },
+    category: "Fast Food",
     isOpen: true,
     rating: 3.7,
   },
-];
+]
 
 /**
  * Fetch nearby restaurants based on driver location
@@ -105,7 +138,7 @@ const MOCK_RESTAURANTS: Restaurant[] = [
 export const fetchNearbyRestaurants = async (
   latitude: number, 
   longitude: number,
-  radius: number = 5000
+  radius: number = 10000
 ): Promise<Restaurant[]> => {
   try {
     // Try to fetch from real API

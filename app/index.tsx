@@ -1,44 +1,34 @@
-import { useEffect } from "react";
-import { Redirect } from "expo-router";
-import { ActivityIndicator, View, Text } from "react-native";
-import styled from "styled-components/native";
+import React, { useEffect } from "react";
+import { router } from "expo-router";
 import { useAuth } from "./context/AuthContext";
-
-const LoadingContainer = styled(View)`
-  flex: 1;
-  justify-content: center;
-  align-items: center;
-  background-color: ${(props) => props.theme.colors.background};
-`;
+import { useLoading } from "./context/LoadingContext";
 
 export default function Index() {
   const { authState } = useAuth();
+  const { logLoadingState } = useLoading();
 
-  // Debug info
+  // Track auth loading state
   useEffect(() => {
-    console.log("Root index auth state:", {
-      isAuthenticated: authState.isAuthenticated,
-      hasDriver: !!authState.driver,
-      isLoading: authState.isLoading,
-    });
-  }, [authState]);
+    logLoadingState('auth', authState.isLoading);
+  }, [authState.isLoading, logLoadingState]);
 
-  // Show loading while checking auth status
-  if (authState.isLoading) {
-    return (
-      <LoadingContainer>
-        <ActivityIndicator size="large" color="#00CC66" />
-        <Text>Loading...</Text>
-      </LoadingContainer>
-    );
-  }
+  // Use router for navigation when auth state changes
+  useEffect(() => {
+    if (!authState.isLoading) {
+      // Only navigate when auth loading is complete
+      if (authState.isAuthenticated && authState.driver) {
+        // Use setTimeout to ensure this happens in the next event loop cycle
+        setTimeout(() => {
+          router.replace("/(app)/home");
+        }, 100);
+      } else {
+        setTimeout(() => {
+          router.replace("/(auth)/login");
+        }, 100);
+      }
+    }
+  }, [authState.isLoading, authState.isAuthenticated, authState.driver]);
 
-  // Redirect based on authentication status
-  if (authState.isAuthenticated && authState.driver) {
-    console.log("Redirecting to home");
-    return <Redirect href="/(app)/home" />;
-  } else {
-    console.log("Redirecting to login");
-    return <Redirect href="/(auth)/login" />;
-  }
+  // Return empty fragment - splash screen is managed by SplashManager
+  return null;
 }
