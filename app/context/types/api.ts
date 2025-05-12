@@ -13,7 +13,7 @@ import NetInfo from '@react-native-community/netinfo';
 // Single base URL for all environments
 // Update this URL when switching between development, testing, and production
 // const BASE_URL = "http://192.168.221.141:8085/api";
-const BASE_URL = "http://192.168.49.141/api";
+const BASE_URL = "http://192.168.40.141/api";
 
 
 
@@ -163,18 +163,19 @@ const api = {
       },
       getDriverLocation: (driverId: string | number) => 
         apiClient.get(`/tracking/drivers/${driverId}/location`),
-      updateDriverStatus: async (driverId: string | number, status: string, latitude: number, longitude: number) => {
+      updateDriverStatus: async (driverId: string | number, status: string, latitude?: number, longitude?: number) => {
+        const updateData = {
+          driverId,
+          status,
+          lastActiveAt: new Date().toISOString()
+        };
+        
         try {
-          return await apiClient.patch(`/drivers/status`, { 
-            driverId, 
-            status,
-            latitude,
-            longitude
-          });
+          return await apiClient.patch(`/drivers/${driverId}/status`, updateData);
         } catch (error: any) {
           console.error(`Failed to update driver status to ${status}:`, error.message);
           
-          //still update the UI state even if the API call fails
+          // Still update the UI state even if the API call fails
           // This lets the user continue using the app, and we can retry in the background
           
           // Try again after a short delay if it's a network error
@@ -182,12 +183,7 @@ const api = {
             try {
               console.log('Attempting to retry status update...');
               await new Promise(resolve => setTimeout(resolve, 3000));
-              return await apiClient.patch(`/drivers/status`, { 
-                driverId, 
-                status,
-                latitude,
-                longitude
-              });
+              return await apiClient.patch(`/drivers/${driverId}/status`, updateData);
             } catch (retryError) {
               // If retry fails, let the app continue but log the error
               console.error('Status update retry failed:', retryError);
@@ -196,8 +192,8 @@ const api = {
           
           throw error;
         }
-       },
-
+      },
+      
       // Update your createTrip function in the tracking section:
 
 createTrip: async (tripData: any) => {
@@ -317,6 +313,30 @@ createTrip: async (tripData: any) => {
     
 
       },
+
+      orders: {
+        // Existing methods
+        acceptOrder: async (orderId: string | number, driverId: string | number) => {
+          try {
+            const response = await apiClient.put(`/assignments/${orderId}/confirm/${driverId}`);
+            return response.data;
+          } catch (error) {
+            console.error(`Failed to accept order ${orderId}:`, error);
+            throw error;
+          }
+        },
+        
+        declineOrder: async (orderId: string | number, driverId: string | number) => {
+          try {
+            const response = await apiClient.put(`/assignments/${orderId}/reject/${driverId}`);
+            return response.data;
+          } catch (error) {
+            console.error(`Failed to reject order ${orderId}:`, error);
+            throw error;
+          }
+        },
+        
+      }
 };
 
 // Export base URL for debugging purposes

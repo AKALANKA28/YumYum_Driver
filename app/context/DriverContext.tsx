@@ -22,11 +22,14 @@ import api from "./types/api";
 import MapboxGL from "@rnmapbox/maps";
 import { DriverContextType, Restaurant, RouteInfo } from "./types/driver";
 import { fetchNearbyRestaurants } from "../services/fetchNearbyRestaurants";
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 
 const { width } = Dimensions.get("window");
 const ASPECT_RATIO = width / Dimensions.get("window").height;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+
 const DriverContext = createContext<DriverContextType | undefined>(undefined);
 
 export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -53,27 +56,16 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   // Stats data
   const [currency, setCurrency] = useState("LKR");
   const [earnings, setEarnings] = useState("2,850");
+  const [driver, setDriver] = useState<{ id: string | null }>({ id: null });
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(false);
 
   // Order details
-  const [orderDetails, setOrderDetails] = useState({
-    restaurantName: "Assembly (Quincy)",
-    address: "Hancock St & MA-3A, Quincy",
-    city: "Quincy, MA",
-    time: "10 min",
-    distance: "0.7 mi",
-    payment: "780.00",
-    restaurantCoordinates: {
-      latitude: 6.8517,
-      longitude: 80.0327,
-    },
-    customerCoordinates: {
-      latitude: 6.8731942,
-      longitude: 80.017573,
-    },
-  });
+  const [orderDetails, setOrderDetails] = useState<any>(null);
+
+  // WebSocket client
+  const [stompClient, setStompClient] = useState<Client | null>(null);
 
   // Animation values
   const buttonWidth = useRef(new Animated.Value(150)).current;
@@ -85,25 +77,51 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const orderDetailsOpacity = useRef(new Animated.Value(0)).current;
   const timerProgress = useRef(new Animated.Value(1)).current;
 
+  // For the timer circular progress
+  const timerStrokeAnimation = timerProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const mapRef = useRef<MapboxGL.MapView>(null);
+  const appState = useRef(AppState.currentState);
+
+  // Load driver information on mount
+  useEffect(() => {
+    loadDriverInfo();
+  }, []);
+
+  // Load driver ID from storage
+  const loadDriverInfo = async () => {
+    try {
+      const driverId = await AsyncStorage.getItem("driverId");
+      setDriver({ id: driverId });
+    } catch (error) {
+      console.error("Error loading driver info:", error);
+    }
+  };
+
+  // Connect to WebSocket when driver goes online
+  useEffect(() => {
+    if (isOnline && driver.id) {
+      connectWebSocket();
+    } else if (!isOnline && stompClient) {
+      disconnectWebSocket();
+    }
+  }, [isOnline, driver.id]);
+
   // Add route info update method
   const updateRouteInfo = (info: RouteInfo) => {
     setRouteInfo(info);
 
-    // Format distance and duration for display in orderDetails if needed
-    const formattedDistance = formatDistance(info.totalDistance);
-    const formattedDuration = formatDuration(info.totalDuration);
-
-    // Update order details with real route information
-    setOrderDetails((prev) => ({
-      ...prev,
-      time: formattedDuration,
-      distance: formattedDistance,
-    }));
-
-    console.log("Route info updated in context:", {
-      distance: formattedDistance,
-      duration: formattedDuration,
-    });
+    // Update order details with real route information if orderDetails exists
+    if (orderDetails) {
+      setOrderDetails((prev: any) => ({
+        ...prev,
+        time: formatDuration(info.totalDuration),
+        distance: formatDistance(info.totalDistance),
+      }));
+    }
   };
 
   // Helper functions to format distance and duration
@@ -111,9 +129,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     if (meters < 1000) {
       return `${Math.round(meters)} m`;
     } else {
-      // For US audience, convert to miles
-      const miles = meters / 1609.34;
-      return `${miles.toFixed(1)} mi`;
+      return `${(meters / 1000).toFixed(1)} km`;
     }
   };
 
@@ -128,16 +144,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       return `${hours}h ${minutes}m`;
     }
   };
-
-  // For the timer circular progress
-  const timerStrokeAnimation = timerProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-
-  const mapRef = useRef<MapboxGL.MapView>(null);
-  const appState = useRef(AppState.currentState);
 
   // Order timer countdown
   useEffect(() => {
@@ -284,10 +290,8 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const toggleOnlineStatus = async () => {
-    
     if (isOnline) {
       // Going offline
-      console.log("Going OFFLINE...");
       setIsFindingOrders(false);
 
       // First animate the button back to the original style
@@ -299,33 +303,20 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         // Update driver status on the server
         try {
           const driverId = await AsyncStorage.getItem("driverId");
-          if (driverId && currentLocation) {
-            console.log("Updating server with OFFLINE status...");
-
-            // Use the correct endpoint and data structure
-            await api.tracking.updateDriverStatus(
-              driverId,
-              "OFFLINE",
-              currentLocation.coords.latitude,
-              currentLocation.coords.longitude
-            );
-
-            console.log("Server status updated to OFFLINE");
+          if (driverId) {
+            await api.tracking.updateDriverStatus(driverId, "OFFLINE");
           }
         } catch (error) {
           console.error("Failed to update offline status:", error);
         }
-
-        console.log("Driver is now OFFLINE");
       });
     } else {
       // Going online
-      console.log("Going ONLINE...");
       try {
         // First set online state to true immediately
         setIsOnline(true);
 
-        // Also set finding orders state immediately - this is the key change
+        // Also set finding orders state immediately
         setIsFindingOrders(true);
 
         // Start the finding orders animation right away
@@ -337,24 +328,12 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         // Update driver status on the server
         try {
           const driverId = await AsyncStorage.getItem("driverId");
-          if (driverId && currentLocation) {
-            console.log("Updating server with ONLINE status...");
-
-            // Use the correct endpoint and data structure
-            await api.tracking.updateDriverStatus(
-              driverId,
-              "AVAILABLE",
-              currentLocation.coords.latitude,
-              currentLocation.coords.longitude
-            );
-
-            console.log("Server status updated to ONLINE/AVAILABLE");
+          if (driverId) {
+            await api.tracking.updateDriverStatus(driverId, "AVAILABLE");
           }
         } catch (error) {
           console.error("Failed to update online status:", error);
         }
-
-        console.log("Driver is now ONLINE");
       } catch (err) {
         // If there's an error, revert states
         setIsOnline(false);
@@ -371,8 +350,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const startLocationUpdates = async () => {
-    console.log("Starting location updates...");
-
     // Get battery level if possible
     let batteryLevel = null;
     try {
@@ -419,12 +396,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
               location.coords.longitude - currentLocation.coords.longitude
             ) > 0.0001
           ) {
-            console.log(
-              `New location: ${location.coords.latitude.toFixed(
-                5
-              )}, ${location.coords.longitude.toFixed(5)}`
-            );
-
             try {
               // Create the location data object as expected by the API
               const locationData = {
@@ -458,26 +429,39 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       throw error;
     }
   };
+
   const acceptOrder = async () => {
     try {
-      // await apiClient.post('/orders/accept', { orderId: orderDetails.id });
+      if (!orderDetails?.orderId || !driver.id) {
+        console.error("Missing order ID or driver ID for order acceptance");
+        return;
+      }
 
-      // Close the order details container
+      // Send API request to accept the order
+      await api.orders.acceptOrder(orderDetails.orderId, driver.id);
+
+      // Close the order details container and navigate to navigation screen
       closeOrderDetails(() => {
-        // Navigate to active delivery screen
-        // router.push("/(app)/activeDelivery");
+        router.push("/(app)/navigation");
       });
     } catch (error) {
       console.error("Failed to accept order:", error);
+      Alert.alert("Error", "Could not accept the order. Please try again.");
     }
   };
 
   const declineOrder = async () => {
     try {
-      // await apiClient.post('/orders/decline', { orderId: orderDetails.id });
+      if (!orderDetails?.orderId || !driver.id) {
+        console.error("Missing order ID or driver ID for order rejection");
+        return;
+      }
 
+      // Send API request to decline the order
+      await api.orders.declineOrder(orderDetails.orderId, driver.id);
+
+      // Close the order details and go back to finding orders
       closeOrderDetails(() => {
-        // Back to finding orders state
         animateToFindingOrders();
       });
     } catch (error) {
@@ -485,6 +469,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       Alert.alert("Error", "Could not decline the order. Please try again.");
     }
   };
+
   const resetButtonToDefault = (callback?: () => void) => {
     // Animate back to default button
     Animated.parallel([
@@ -567,54 +552,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     ]).start();
   };
 
-  // Function to receive an order - in production, connect to your API
-  // Update this function in DriverContext.tsx
-  const receiveOrder = () => {
-    if (!currentLocation) return;
-
-    // Create a proper route with well-separated points to show the route clearly
-    const restaurantCoordinates = {
-      latitude: currentLocation.coords.latitude + 0.005,
-      longitude: currentLocation.coords.longitude + 0.005,
-    };
-
-    const customerCoordinates = {
-      latitude: currentLocation.coords.latitude + 0.01,
-      longitude: currentLocation.coords.longitude + 0.01,
-    };
-
-    // Set order route for drawing on the map - contains both restaurant and customer locations
-    const routePoints = [
-      restaurantCoordinates, // First point is the restaurant
-      customerCoordinates, // Second point is the customer
-    ];
-
-    console.log("Generated order route points:", routePoints);
-    setOrderRoute(routePoints);
-
-    // Reset route info when receiving new order
-    setRouteInfo(null);
-
-    // Ensure proper order details with coordinates
-    setOrderDetails({
-      restaurantName: "Savoury Bites, High Level Road, Homagama",
-      address: "Habarakada-Ranala Road, 10654",
-      city: "Godagama",
-      time: "Calculating...", // Will be updated when route info arrives
-      distance: "Calculating...", // Will be updated when route info arrives
-      payment: "372.00",
-      restaurantCoordinates: restaurantCoordinates,
-      customerCoordinates: customerCoordinates,
-    });
-
-    // Reset the timer
-    setOrderTimer(15);
-    timerProgress.setValue(1);
-
-    // Show order details
-    animateButtonToOrderDetails();
-  };
-
   const animateButtonToOrderDetails = () => {
     // Hide finding orders state and show order details
     setIsFindingOrders(false);
@@ -681,10 +618,144 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       resetButtonToDefault(() => {
         setShowingOrderDetails(false);
         setOrderRoute(null);
-        setRouteInfo(null); // Clear route info
+        setRouteInfo(null);
         if (callback) callback();
       });
     });
+  };
+
+  // WebSocket connection functions
+  const connectWebSocket = () => {
+    try {
+      // Get the API URL from environment variables or use a default for development
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://your-api-domain.com";
+      
+      // Create the WebSocket URL by replacing http/https with ws/wss
+      const wsUrl = apiUrl.replace(/^http/, 'ws');
+      
+      // Create the SockJS connection to the WebSocket endpoint
+      const socket = new SockJS(`${wsUrl}/ws`); // Using the standard WebSocket endpoint path
+      
+      const client: Client = new Client({
+        webSocketFactory: () => socket,
+        onConnect: (): void => {
+          console.log("WebSocket connected to assignment service");
+          subscribeToOrderAssignments();
+        },
+        onDisconnect: (): void => {
+          console.log("WebSocket disconnected");
+          // Consider implementing reconnection logic here
+          setTimeout(() => {
+            console.log("Attempting to reconnect...");
+            connectWebSocket();
+          }, 5000); // Retry after 5 seconds
+        },
+        onStompError: (frame): void => {
+          console.error("STOMP protocol error:", frame);
+        },
+        // Add reconnect options
+        reconnectDelay: 5000,
+        heartbeatIncoming: 4000,
+        heartbeatOutgoing: 4000,
+      });
+  
+      client.activate();
+      setStompClient(client);
+    } catch (error) {
+      console.error("Failed to connect to WebSocket:", error);
+    }
+  };
+  
+  const disconnectWebSocket = () => {
+    if (stompClient) {
+      stompClient.deactivate();
+      setStompClient(null);
+    }
+  };
+
+  // WebSocket subscription function
+  const subscribeToOrderAssignments = () => {
+    if (!stompClient || !driver.id) return;
+
+    // Define interface for the order assignment data that matches your backend structure
+    interface OrderAssignmentData {
+      orderId: string | number;
+      orderNumber: string;
+      payment: string;
+      expiryTime: string; 
+      timestamp: number;
+      restaurantName: string;
+      restaurantAddress: string;
+      customerAddress: string;
+      restaurantCoordinates: {
+        latitude: number;
+        longitude: number;
+      };
+      customerCoordinates: {
+        latitude: number;
+        longitude: number;
+      };
+      specialInstructions: string | null;
+    }
+
+    // Define interface for location coordinates
+    interface Coordinates {
+      latitude: number;
+      longitude: number;
+    }
+
+    stompClient.subscribe(
+      `/queue/driver.${driver.id}.assignments`,
+      (message: { body: string }) => {
+        try {
+          const orderData: OrderAssignmentData = JSON.parse(message.body);
+          console.log("New order assignment received:", orderData);
+
+          // Set order details from the notification
+          setOrderDetails({
+            orderId: orderData.orderId,
+            orderNumber: orderData.orderNumber,
+            restaurantName: orderData.restaurantName,
+            address: orderData.customerAddress,
+            payment: orderData.payment,
+            specialInstructions: orderData.specialInstructions || "",
+
+            // Use coordinates directly from the nested objects
+            restaurantCoordinates: orderData.restaurantCoordinates,
+            customerCoordinates: orderData.customerCoordinates,
+          });
+
+          // Set route points for the map
+          setOrderRoute([
+            orderData.restaurantCoordinates as Coordinates,
+            orderData.customerCoordinates as Coordinates,
+          ]);
+
+          // Show the order details modal
+          animateButtonToOrderDetails();
+
+          // Start the timer
+          setOrderTimer(15);
+          timerProgress.setValue(1);
+        } catch (error) {
+          console.error("Error processing order assignment:", error);
+        }
+      }
+    );
+
+    // Subscribe to assignment cancellations
+    stompClient.subscribe(
+      `/queue/driver.${driver.id}.cancellations`,
+      (message: { body: string }) => {
+        try {
+          const cancellationData = JSON.parse(message.body);
+          console.log("Assignment cancellation received:", cancellationData);
+          // Handle cancellation if needed
+        } catch (error) {
+          console.error("Error processing cancellation:", error);
+        }
+      }
+    );
   };
 
   const handleGoToSettings = () => {
@@ -707,11 +778,10 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         orderTimer,
         currency,
         earnings,
-        orderDetails,        
+        orderDetails,
         routeInfo,
         restaurants,
         isLoadingRestaurants,
-        fetchNearbyRestaurantsData,
 
         // Animation values
         buttonWidth,
@@ -729,10 +799,10 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         acceptOrder,
         declineOrder,
         handleGoToSettings,
-        receiveOrder,
         animateToFindingOrders,
-        updateRouteInfo, // Add route info update method
+        updateRouteInfo,
         timerStrokeAnimation,
+        fetchNearbyRestaurantsData,
 
         // Refs
         mapRef,

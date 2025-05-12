@@ -90,7 +90,7 @@ export interface DriverContextType {
   acceptOrder: () => void;
   declineOrder: () => void;
   handleGoToSettings: () => void;
-  receiveOrder: () => void;
+  // receiveOrder: () => void;
   animateToFindingOrders: () => void;
   updateRouteInfo: (info: RouteInfo) => void; 
   timerStrokeAnimation: Animated.AnimatedInterpolation<string | number>;
