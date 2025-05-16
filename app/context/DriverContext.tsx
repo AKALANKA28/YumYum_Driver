@@ -18,7 +18,7 @@ import { Region } from "react-native-maps";
 import { router } from "expo-router";
 import * as Battery from "expo-battery";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import api from "./types/api";
+import api, { API_BASE_URL } from "./types/api";
 import MapboxGL from "@rnmapbox/maps";
 import { DriverContextType, Restaurant, RouteInfo } from "./types/driver";
 import { fetchNearbyRestaurants } from "../services/fetchNearbyRestaurants";
@@ -627,19 +627,35 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   // WebSocket connection functions
   const connectWebSocket = () => {
     try {
-      // Get the API URL from environment variables or use a default for development
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL || "http://your-api-domain.com";
-      
-      // Create the WebSocket URL by replacing http/https with ws/wss
-      const wsUrl = apiUrl.replace(/^http/, 'ws');
-      
-      // Create the SockJS connection to the WebSocket endpoint
-      const socket = new SockJS(`${wsUrl}/ws`); // Using the standard WebSocket endpoint path
-      
+      // Get the API URL from environment variables, keep it as http/https
+      const apiUrl = API_BASE_URL;
+      console.log("Connecting to WebSocket at:", apiUrl);
+
+      // Extract the base URL without the /api path
+      const baseUrl = apiUrl.replace(/\/api$/, "");
+      console.log("Using base URL for WebSocket:", baseUrl);
+
+      // Connect to the correct endpoint as configured in your backend
+      const socket = new SockJS(`${baseUrl}/ws`);
+
+      socket.onopen = () => {
+        console.log("SockJS socket opened successfully");
+      };
+
+      socket.onclose = (event) => {
+        console.log(
+          `SockJS socket closed: code=${event.code}, reason=${event.reason}`
+        );
+      };
+
+      socket.onerror = (error) => {
+        console.error("SockJS socket error:", error);
+      };
+
       const client: Client = new Client({
         webSocketFactory: () => socket,
         onConnect: (): void => {
-          console.log("WebSocket connected to assignment service");
+          console.log("WebSocket connected successfully");
           subscribeToOrderAssignments();
         },
         onDisconnect: (): void => {
@@ -653,19 +669,22 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         onStompError: (frame): void => {
           console.error("STOMP protocol error:", frame);
         },
+        debug: (msg) => {
+          console.log("WebSocket Debug:", msg);
+        },
         // Add reconnect options
         reconnectDelay: 5000,
         heartbeatIncoming: 4000,
         heartbeatOutgoing: 4000,
       });
-  
+
       client.activate();
       setStompClient(client);
     } catch (error) {
       console.error("Failed to connect to WebSocket:", error);
     }
   };
-  
+
   const disconnectWebSocket = () => {
     if (stompClient) {
       stompClient.deactivate();
@@ -682,7 +701,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       orderId: string | number;
       orderNumber: string;
       payment: string;
-      expiryTime: string; 
+      expiryTime: string;
       timestamp: number;
       restaurantName: string;
       restaurantAddress: string;

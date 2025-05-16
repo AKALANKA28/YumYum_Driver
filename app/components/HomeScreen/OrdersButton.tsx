@@ -24,7 +24,6 @@ const OrderButton = () => {
     orderDetailsOpacity,
     toggleOnlineStatus,
     isOnline,
-    receiveOrder,
   } = useDriverContext();
 
   // Add refs for fade animations and sound
@@ -62,23 +61,24 @@ const OrderButton = () => {
   }, [isFindingOrders, showingOrderDetails]);
 
   // Auto-trigger order after going online
-  useEffect(() => {
-    let orderTimer: NodeJS.Timeout;
+  // useEffect(() => {
+  //   let orderTimer: NodeJS.Timeout;
     
-    if (isOnline && isFindingOrders) {
-      // Set a timer to automatically receive an order after 3 seconds
-      orderTimer = setTimeout(() => {
-        receiveOrder();
-      }, 3000);
-    }
+  //   // if (isOnline && isFindingOrders) {
+  //   //   // Set a timer to automatically receive an order after 3 seconds
+  //   //   orderTimer = setTimeout(() => {
+  //   //     receiveOrder();
+  //   //   }, 3000);
+  //   // }
     
-    // Cleanup timer if component unmounts or state changes
-    return () => {
-      if (orderTimer) {
-        clearTimeout(orderTimer);
-      }
-    };
-  }, [isOnline, isFindingOrders, receiveOrder]);
+  //   // Cleanup timer if component unmounts or state changes
+  //   // return () => {
+  //   //   if (orderTimer) {
+  //   //     clearTimeout(orderTimer);
+  //   //   }
+  //   // };
+  // // }, [isOnline, isFindingOrders, receiveOrder]);
+  
 
   // Cleanup sound on unmount
   useEffect(() => {
