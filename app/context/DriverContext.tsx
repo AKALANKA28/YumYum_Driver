@@ -241,15 +241,9 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Add this function to fetch nearby restaurants
   const fetchNearbyRestaurantsData = async () => {
-    if (!currentLocation) return;
-
     setIsLoadingRestaurants(true);
     try {
-      const nearbyRestaurants = await fetchNearbyRestaurants(
-        currentLocation.coords.latitude,
-        currentLocation.coords.longitude,
-        10000
-      );
+      const nearbyRestaurants = await fetchNearbyRestaurants();
       setRestaurants(nearbyRestaurants);
     } catch (error) {
       console.error("Error fetching restaurants:", error);

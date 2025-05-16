@@ -8,6 +8,19 @@ import {
   VehicleData,
   DocumentUploadMetadata
 } from './auth';
+
+// Define common types for API responses
+export interface Restaurant {
+  id: string;
+  name: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  category?: string;
+  isOpen?: boolean;
+  rating?: number;
+}
 import NetInfo from '@react-native-community/netinfo';
 
 // Single base URL for all environments
@@ -312,9 +325,7 @@ const api = {
       }
     
 
-      },
-
-    orders: {
+      },    orders: {
       // Existing methods
       acceptOrder: async (orderId: string | number, driverId: string | number) => {
         try {
@@ -336,6 +347,47 @@ const api = {
         }
       },
       
+      pickup: async (orderId: string | number) => {
+        try {
+          const response = await apiClient.put(`/orders/${orderId}/pickup`);
+          return response.data;
+        } catch (error) {
+          console.error(`Failed to mark order ${orderId} as picked up:`, error);
+          throw error;
+        }
+      },
+      
+      complete: async (orderId: string | number) => {
+        try {
+          const response = await apiClient.put(`/orders/${orderId}/complete`);
+          return response.data;
+        } catch (error) {
+          console.error(`Failed to mark order ${orderId} as completed:`, error);
+          throw error;
+        }
+      }
+    },
+      // Restaurant related endpoints
+    restaurants: {
+      getNearby: async () => {
+        try {
+          const response = await apiClient.get('/restaurant/public/verified');
+          return response.data.restaurants;
+        } catch (error) {
+          console.error('Failed to fetch restaurants:', error);
+          throw error;
+        }
+      },
+      
+      getDetails: async (restaurantId: string) => {
+        try {
+          const response = await apiClient.get(`/restaurants/${restaurantId}`);
+          return response.data;
+        } catch (error) {
+          console.error(`Failed to get restaurant details for ${restaurantId}:`, error);
+          throw error;
+        }
+      }
     }
 };
 
