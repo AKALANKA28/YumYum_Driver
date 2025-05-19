@@ -24,7 +24,7 @@ export interface Restaurant {
 import NetInfo from '@react-native-community/netinfo';
 
 // Single base URL for all environments
-const BASE_URL = "http://192.168.75.141/api";
+const BASE_URL = "http://192.168.109.141/api";
 // const BASE_URL = "http://192.168.1.159/api";
 
 
