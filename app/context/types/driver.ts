@@ -36,6 +36,39 @@ export interface Restaurant {
   rating?: number;
 }
 
+
+export interface OrderAssignmentNotification {
+  orderId: number;
+  orderNumber: string;
+  payment: string;
+  currency: string;
+  expiryTime: string;
+  timestamp: number;
+  
+  // Restaurant pickup details
+  restaurantName: string;
+  pickupAddress: string;
+  restaurantCoordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  
+  // Customer delivery details
+  deliveryAddress: string;
+  customerName: string;
+  phoneNumber: string;
+  customerCoordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  
+  // Order information
+  deliveryFee?: number;
+  specialInstructions?: string;
+}
+
+
+
 // Define context type
 export interface DriverContextType {
   // State

@@ -221,7 +221,7 @@ export default function EarningsScreen() {
         onInfoPress={handleInfoPress}
       />
 
-      <TabContainer>
+      {/* <TabContainer>
         <TabButton
           active={activeTab === "earnings"}
           onPress={() => setActiveTab("earnings")}
@@ -235,7 +235,7 @@ export default function EarningsScreen() {
         >
           <TabText active={activeTab === "activity"}>Activity</TabText>
         </TabButton>
-      </TabContainer>
+      </TabContainer> */}
 
       {activeTab === "earnings" ? (
         <ScrollView showsVerticalScrollIndicator={false}>

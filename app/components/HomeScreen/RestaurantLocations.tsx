@@ -4,14 +4,13 @@ import Mapbox from "@rnmapbox/maps";
 import { MaterialIcons } from "@expo/vector-icons";
 import { RestaurantLocationsProps } from "./types/restaurantDisplay";
 
-
 const RestaurantLocations: React.FC<RestaurantLocationsProps> = ({
   restaurants,
   isOnline,
   onMarkerPress,
 }) => {
-  // Don't render if driver is offline
-  if (!isOnline) {
+  // Don't render if driver is offline or if restaurants are not available
+  if (!isOnline || !restaurants || restaurants.length === 0) {
     return null;
   }
 
@@ -27,7 +26,7 @@ const RestaurantLocations: React.FC<RestaurantLocationsProps> = ({
         ]}
         anchor={{ x: 0.5, y: 1.0 }}
       >
-        <View 
+        <View
           style={styles.markerContainer}
           onTouchEnd={() => onMarkerPress?.(restaurant)}
         >
@@ -35,12 +34,12 @@ const RestaurantLocations: React.FC<RestaurantLocationsProps> = ({
           <View style={styles.markerIconContainer}>
             <MaterialIcons name="restaurant" size={16} color="#fff" />
           </View>
-          
+
           {/* Restaurant name bubble */}
           <View style={styles.markerBubble}>
-            <Text 
+            <Text
               style={styles.markerText}
-              numberOfLines={1} 
+              numberOfLines={1}
               ellipsizeMode="tail"
             >
               {restaurant.name}

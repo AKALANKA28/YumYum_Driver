@@ -20,10 +20,15 @@ import * as Battery from "expo-battery";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { API_BASE_URL } from "./types/api";
 import MapboxGL from "@rnmapbox/maps";
-import { DriverContextType, Restaurant, RouteInfo } from "./types/driver";
+import {
+  DriverContextType,
+  Restaurant,
+  RouteInfo,
+  OrderAssignmentNotification,
+} from "./types/driver";
 import { fetchNearbyRestaurants } from "../services/fetchNearbyRestaurants";
-import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
+import { createStompClient } from "../utils/websocket-client";
 
 const { width } = Dimensions.get("window");
 const ASPECT_RATIO = width / Dimensions.get("window").height;
@@ -76,6 +81,8 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   const contentOpacity = useRef(new Animated.Value(1)).current;
   const orderDetailsOpacity = useRef(new Animated.Value(0)).current;
   const timerProgress = useRef(new Animated.Value(1)).current;
+  const websocketRef = useRef<any>(null);
+  const websocketClientRef = useRef<any>(null);
 
   // For the timer circular progress
   const timerStrokeAnimation = timerProgress.interpolate({
@@ -146,14 +153,15 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Order timer countdown
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
     if (showingOrderDetails && orderTimer > 0) {
-      interval = setInterval(() => {
+      timerIntervalRef.current = setInterval(() => {
         setOrderTimer((prevTimer) => {
           if (prevTimer <= 1) {
-            clearInterval(interval);
+            if (timerIntervalRef.current)
+              clearInterval(timerIntervalRef.current);
             // Auto-decline the order when timer ends
             setTimeout(() => declineOrder(), 200);
             return 0;
@@ -172,7 +180,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     return () => {
-      if (interval) clearInterval(interval);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [showingOrderDetails, orderTimer]);
 
@@ -244,7 +252,13 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoadingRestaurants(true);
     try {
       const nearbyRestaurants = await fetchNearbyRestaurants();
-      setRestaurants(nearbyRestaurants);
+      // Make sure we have a valid array of restaurants
+      if (Array.isArray(nearbyRestaurants)) {
+        setRestaurants(nearbyRestaurants);
+      } else {
+        console.warn("Restaurants data is not an array:", nearbyRestaurants);
+        setRestaurants([]);
+      }
     } catch (error) {
       console.error("Error fetching restaurants:", error);
       setRestaurants([]);
@@ -298,7 +312,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           const driverId = await AsyncStorage.getItem("driverId");
           if (driverId) {
-            await api.tracking.updateDriverStatus(driverId, "OFFLINE");
+            await api.drivers.updateDriverStatus(driverId, "OFFLINE");
           }
         } catch (error) {
           console.error("Failed to update offline status:", error);
@@ -323,7 +337,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           const driverId = await AsyncStorage.getItem("driverId");
           if (driverId) {
-            await api.tracking.updateDriverStatus(driverId, "AVAILABLE");
+            await api.drivers.updateDriverStatus(driverId, "AVAILABLE");
           }
         } catch (error) {
           console.error("Failed to update online status:", error);
@@ -367,8 +381,9 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      // Set online state first, before setting up the watcher
-      setIsOnline(true);
+      // // Set online state first, before setting up the watcher
+      // setIsOnline(true);
+      console.log("Starting location updates for driver:", driverId);
 
       const locationWatchId = await Location.watchPositionAsync(
         {
@@ -379,6 +394,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         async (location) => {
           // Update current location in state
           setCurrentLocation(location);
+          console.log("Location updated:", location.coords);
 
           // Only send location updates if there's significant change
           if (
@@ -405,7 +421,9 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
 
               // Send location update using the updateLocation endpoint
               if (driverId) {
+                console.log("Sending location update to API:", locationData);
                 await api.tracking.updateLocation(driverId, locationData);
+                console.log("Location update sent successfully");
               } else {
                 console.error("Cannot update location: Driver ID is null");
               }
@@ -417,6 +435,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       );
 
       // Store the subscription so we can remove it later
+      console.log("Location watching started successfully");
       setWatchId(locationWatchId);
     } catch (error: any) {
       console.error("Error setting up location tracking:", error?.message);
@@ -431,6 +450,11 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
+      // Clear any existing timers to prevent auto-rejection
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+      setOrderTimer(0); // Stop the countdown immediately
+
       // Send API request to accept the order
       await api.orders.acceptOrder(orderDetails.orderId, driver.id);
 
@@ -438,9 +462,32 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       closeOrderDetails(() => {
         router.push("/(app)/navigation");
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to accept order:", error);
-      Alert.alert("Error", "Could not accept the order. Please try again.");
+
+      // Enhanced error handling - check if this was due to the order being expired
+      if (
+        error.response?.status === 404 &&
+        error.response?.data?.includes("No pending assignment found")
+      ) {
+        Alert.alert(
+          "Order Expired",
+          "This order is no longer available. It may have expired or been assigned to another driver.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // Return to finding orders mode
+                closeOrderDetails(() => {
+                  animateToFindingOrders();
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Error", "Could not accept the order. Please try again.");
+      }
     }
   };
 
@@ -620,64 +667,81 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // WebSocket connection functions
   const connectWebSocket = () => {
+    if (!driver.id) {
+      console.error("Cannot connect WebSocket: No driver ID available");
+      return;
+    }
+
     try {
-      // Get the API URL from environment variables, keep it as http/https
       const apiUrl = API_BASE_URL;
-      console.log("Connecting to WebSocket at:", apiUrl);
-
-      // Extract the base URL without the /api path
       const baseUrl = apiUrl.replace(/\/api$/, "");
-      console.log("Using base URL for WebSocket:", baseUrl);
 
-      // Connect to the correct endpoint as configured in your backend
-      const socket = new SockJS(`${baseUrl}/ws`);
+      // Create a new WebSocket client with the enhanced implementation
+      const wsClient = createStompClient(baseUrl, driver.id, (orderData) => {
+        console.log("Processing new order assignment in context:", orderData);
 
-      socket.onopen = () => {
-        console.log("SockJS socket opened successfully");
-      };
+        // Set order details
+        setOrderDetails({
+          orderId: orderData.orderId,
+          orderNumber: orderData.orderNumber || "Order",
+          restaurantName: orderData.restaurantName || "Restaurant",
+          address: orderData.deliveryAddress || "Customer Address",
+          payment: orderData.payment || "0",
+          specialInstructions: orderData.specialInstructions || "",
+          restaurantCoordinates: orderData.restaurantCoordinates,
+          customerCoordinates: orderData.customerCoordinates,
+        });
 
-      socket.onclose = (event) => {
-        console.log(
-          `SockJS socket closed: code=${event.code}, reason=${event.reason}`
-        );
-      };
+        // Set route points for the map
+        if (orderData.restaurantCoordinates && orderData.customerCoordinates) {
+          setOrderRoute([
+            orderData.restaurantCoordinates,
+            orderData.customerCoordinates,
+          ]);
+        }
 
-      socket.onerror = (error) => {
-        console.error("SockJS socket error:", error);
-      };
+        // Show the order details modal
+        animateButtonToOrderDetails();
 
-      const client: Client = new Client({
-        webSocketFactory: () => socket,
-        onConnect: (): void => {
-          console.log("WebSocket connected successfully");
-          subscribeToOrderAssignments();
-        },
-        onDisconnect: (): void => {
-          console.log("WebSocket disconnected");
-          // Consider implementing reconnection logic here
-          setTimeout(() => {
-            console.log("Attempting to reconnect...");
-            connectWebSocket();
-          }, 5000); // Retry after 5 seconds
-        },
-        onStompError: (frame): void => {
-          console.error("STOMP protocol error:", frame);
-        },
-        debug: (msg) => {
-          console.log("WebSocket Debug:", msg);
-        },
-        // Add reconnect options
-        reconnectDelay: 5000,
-        heartbeatIncoming: 4000,
-        heartbeatOutgoing: 4000,
+        // Start the timer
+        setOrderTimer(15);
+        timerProgress.setValue(1);
       });
 
-      client.activate();
-      setStompClient(client);
+      // Store the client reference
+      if (wsClient) {
+        if (websocketClientRef.current) {
+          // Disconnect previous client if it exists
+          websocketClientRef.current.disconnect();
+        }
+
+        websocketClientRef.current = wsClient;
+        setStompClient(wsClient.client);
+      }
     } catch (error) {
-      console.error("Failed to connect to WebSocket:", error);
+      console.error("Failed to establish WebSocket connection:", error);
     }
   };
+
+  // Add a cleanup function in your useEffect
+  useEffect(() => {
+    if (isOnline && driver.id) {
+      connectWebSocket();
+    } else if (!isOnline && websocketClientRef.current) {
+      // Disconnect when going offline
+      websocketClientRef.current.disconnect();
+      websocketClientRef.current = null;
+      setStompClient(null);
+    }
+
+    // Cleanup on component unmount
+    return () => {
+      if (websocketClientRef.current) {
+        websocketClientRef.current.disconnect();
+        websocketClientRef.current = null;
+      }
+    };
+  }, [isOnline, driver.id]);
 
   const disconnectWebSocket = () => {
     if (stompClient) {
@@ -687,89 +751,89 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // WebSocket subscription function
-  const subscribeToOrderAssignments = () => {
-    if (!stompClient || !driver.id) return;
+  // const subscribeToOrderAssignments = () => {
+  //   if (!stompClient || !driver.id) return;
 
-    // Define interface for the order assignment data that matches your backend structure
-    interface OrderAssignmentData {
-      orderId: string | number;
-      orderNumber: string;
-      payment: string;
-      expiryTime: string;
-      timestamp: number;
-      restaurantName: string;
-      restaurantAddress: string;
-      customerAddress: string;
-      restaurantCoordinates: {
-        latitude: number;
-        longitude: number;
-      };
-      customerCoordinates: {
-        latitude: number;
-        longitude: number;
-      };
-      specialInstructions: string | null;
-    }
+  //   // Define interface for the order assignment data that matches your backend structure
+  //   interface OrderAssignmentData {
+  //     orderId: string | number;
+  //     orderNumber: string;
+  //     payment: string;
+  //     expiryTime: string;
+  //     timestamp: number;
+  //     restaurantName: string;
+  //     restaurantAddress: string;
+  //     customerAddress: string;
+  //     restaurantCoordinates: {
+  //       latitude: number;
+  //       longitude: number;
+  //     };
+  //     customerCoordinates: {
+  //       latitude: number;
+  //       longitude: number;
+  //     };
+  //     specialInstructions: string | null;
+  //   }
 
-    // Define interface for location coordinates
-    interface Coordinates {
-      latitude: number;
-      longitude: number;
-    }
+  //   // Define interface for location coordinates
+  //   interface Coordinates {
+  //     latitude: number;
+  //     longitude: number;
+  //   }
 
-    stompClient.subscribe(
-      `/queue/driver.${driver.id}.assignments`,
-      (message: { body: string }) => {
-        try {
-          const orderData: OrderAssignmentData = JSON.parse(message.body);
-          console.log("New order assignment received:", orderData);
+  //   stompClient.subscribe(
+  //     `/queue/driver.${driver.id}.assignments`,
+  //     (message: { body: string }) => {
+  //       try {
+  //         const orderData: OrderAssignmentData = JSON.parse(message.body);
+  //         console.log("New order assignment received:", orderData);
 
-          // Set order details from the notification
-          setOrderDetails({
-            orderId: orderData.orderId,
-            orderNumber: orderData.orderNumber,
-            restaurantName: orderData.restaurantName,
-            address: orderData.customerAddress,
-            payment: orderData.payment,
-            specialInstructions: orderData.specialInstructions || "",
+  //         // Set order details from the notification
+  //         setOrderDetails({
+  //           orderId: orderData.orderId,
+  //           orderNumber: orderData.orderNumber,
+  //           restaurantName: orderData.restaurantName,
+  //           address: orderData.customerAddress,
+  //           payment: orderData.payment,
+  //           specialInstructions: orderData.specialInstructions || "",
 
-            // Use coordinates directly from the nested objects
-            restaurantCoordinates: orderData.restaurantCoordinates,
-            customerCoordinates: orderData.customerCoordinates,
-          });
+  //           // Use coordinates directly from the nested objects
+  //           restaurantCoordinates: orderData.restaurantCoordinates,
+  //           customerCoordinates: orderData.customerCoordinates,
+  //         });
 
-          // Set route points for the map
-          setOrderRoute([
-            orderData.restaurantCoordinates as Coordinates,
-            orderData.customerCoordinates as Coordinates,
-          ]);
+  //         // Set route points for the map
+  //         setOrderRoute([
+  //           orderData.restaurantCoordinates as Coordinates,
+  //           orderData.customerCoordinates as Coordinates,
+  //         ]);
 
-          // Show the order details modal
-          animateButtonToOrderDetails();
+  //         // Show the order details modal
+  //         animateButtonToOrderDetails();
 
-          // Start the timer
-          setOrderTimer(15);
-          timerProgress.setValue(1);
-        } catch (error) {
-          console.error("Error processing order assignment:", error);
-        }
-      }
-    );
+  //         // Start the timer
+  //         setOrderTimer(15);
+  //         timerProgress.setValue(1);
+  //       } catch (error) {
+  //         console.error("Error processing order assignment:", error);
+  //       }
+  //     }
+  //   );
 
-    // Subscribe to assignment cancellations
-    stompClient.subscribe(
-      `/queue/driver.${driver.id}.cancellations`,
-      (message: { body: string }) => {
-        try {
-          const cancellationData = JSON.parse(message.body);
-          console.log("Assignment cancellation received:", cancellationData);
-          // Handle cancellation if needed
-        } catch (error) {
-          console.error("Error processing cancellation:", error);
-        }
-      }
-    );
-  };
+  //   // Subscribe to assignment cancellations
+  //   stompClient.subscribe(
+  //     `/queue/driver.${driver.id}.cancellations`,
+  //     (message: { body: string }) => {
+  //       try {
+  //         const cancellationData = JSON.parse(message.body);
+  //         console.log("Assignment cancellation received:", cancellationData);
+  //         // Handle cancellation if needed
+  //       } catch (error) {
+  //         console.error("Error processing cancellation:", error);
+  //       }
+  //     }
+  //   );
+  // };
 
   const handleGoToSettings = () => {
     router.push("/(app)/settings");

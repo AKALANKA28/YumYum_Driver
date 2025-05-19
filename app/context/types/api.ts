@@ -24,14 +24,23 @@ export interface Restaurant {
 import NetInfo from '@react-native-community/netinfo';
 
 // Single base URL for all environments
-// Update this URL when switching between development, testing, and production
-// const BASE_URL = "http://192.168.221.141:8085/api";
+// const BASE_URL = "http://192.168.137.141/api";
 const BASE_URL = "http://192.168.1.159/api";
 
 
 
 // Create the API client instance with error handling
 const apiClient = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+  timeout: 30000, // 10 seconds timeout
+});
+
+// Create a public API client that doesn't require authentication
+const publicApiClient = axios.create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -69,8 +78,7 @@ apiClient.interceptors.response.use(
     // Log successful responses for debugging
     console.log(`API Response: ${response.status} ${response.config.url}`);
     return response;
-  },
-  async (error) => {
+  },  async (error) => {
     // Extract request information for better error logging
     const requestUrl = error.config?.url || 'unknown';
     const requestMethod = error.config?.method?.toUpperCase() || 'unknown';
@@ -110,6 +118,50 @@ apiClient.interceptors.response.use(
     const errorMessage = getErrorMessageFromStatus(error.response.status);
     
     console.error(`API Error ${error.response.status} on ${requestMethod} ${requestUrl}:`, 
+      error.response.data?.message || errorMessage);
+    
+    return Promise.reject({
+      ...error,
+      message: error.response.data?.message || errorMessage
+    });
+  }
+);
+
+// Add the same response interceptor to the public API client
+publicApiClient.interceptors.response.use(
+  (response) => {
+    // Log successful responses for debugging
+    console.log(`Public API Response: ${response.status} ${response.config.url}`);
+    return response;
+  },
+  async (error) => {
+    // Extract request information for better error logging
+    const requestUrl = error.config?.url || 'unknown';
+    const requestMethod = error.config?.method?.toUpperCase() || 'unknown';
+    
+    // Handle network errors
+    if (!error.response) {
+      console.error(`Network error on public API ${requestMethod} ${requestUrl}:`, error.message);
+      
+      // Check if we have a connection
+      const netInfo = await NetInfo.fetch();
+      if (!netInfo.isConnected) {
+        return Promise.reject({
+          ...error,
+          message: 'No internet connection. Please check your network settings.'
+        });
+      }
+      
+      return Promise.reject({
+        ...error,
+        message: 'Unable to reach server. Please try again later.'
+      });
+    }
+    
+    // Provide a more descriptive error message based on status code
+    const errorMessage = getErrorMessageFromStatus(error.response.status);
+    
+    console.error(`Public API Error ${error.response.status} on ${requestMethod} ${requestUrl}:`, 
       error.response.data?.message || errorMessage);
     
     return Promise.reject({
@@ -161,22 +213,10 @@ const api = {
           apiClient.post(`/auth/documents/${type}`, data),
       }
     },
-    
-    // Driver tracking related endpoints
-    tracking: {
-      updateLocation: async (driverId: string | number, locationData: LocationData) => {
-        try {
-          
-          return await apiClient.post(`/tracking/drivers/${driverId}/location`, locationData);
-        } catch (error) {
-          console.error('Location update failed. Will retry in background.');
-          // Here you could implement offline storage and retry logic
-          throw error;
-        }
-      },
-      getDriverLocation: (driverId: string | number) => 
-        apiClient.get(`/tracking/drivers/${driverId}/location`),
-      updateDriverStatus: async (driverId: string | number, status: string, latitude?: number, longitude?: number) => {
+
+    // Driver related endpoints
+    drivers: {
+          updateDriverStatus: async (driverId: string | number, status: string, latitude?: number, longitude?: number) => {
         const updateData = {
           driverId,
           status,
@@ -205,7 +245,23 @@ const api = {
           
           throw error;
         }
+      }
+    },
+    
+    // Driver tracking related endpoints
+    tracking: {
+      updateLocation: async (driverId: string | number, locationData: LocationData) => {
+        try {
+          
+          return await apiClient.put(`/tracking/drivers/${driverId}/location`, locationData);
+        } catch (error) {
+          console.error('Location update failed. Will retry in background.');
+          // Here you could implement offline storage and retry logic
+          throw error;
+        }
       },
+      getDriverLocation: (driverId: string | number) => 
+        apiClient.get(`/tracking/drivers/${driverId}/location`),
       
       // Update your createTrip function in the tracking section:
 
@@ -325,7 +381,9 @@ const api = {
       }
     
 
-      },    orders: {
+      },
+      
+    orders: {
       // Existing methods
       acceptOrder: async (orderId: string | number, driverId: string | number) => {
         try {
@@ -366,16 +424,23 @@ const api = {
           throw error;
         }
       }
-    },
-      // Restaurant related endpoints
+    },    // Restaurant related endpoints
     restaurants: {
       getNearby: async () => {
         try {
-          const response = await apiClient.get('/restaurant/public/verified');
-          return response.data.restaurants;
+          // Use the public API client without authentication headers
+          const response = await publicApiClient.get('/restaurant/public/verified');
+          // Check if the restaurants property exists and is an array
+          if (response.data && Array.isArray(response.data.restaurants)) {
+            return response.data.restaurants;
+          } else {
+            console.warn('Restaurant data is not in expected format:', response.data);
+            return [];
+          }
         } catch (error) {
           console.error('Failed to fetch restaurants:', error);
-          throw error;
+          // Return an empty array instead of throwing to prevent crashes
+          return [];
         }
       },
       
