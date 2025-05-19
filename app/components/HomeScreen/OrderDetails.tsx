@@ -37,6 +37,10 @@ const OrderDetails = ({
   const { declineOrder, orderTimer, orderDetails, acceptOrder, routeInfo } =
     useDriverContext();
 
+  // Add refs to track timers and animations
+  const timerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timerAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+
   // Format distance for display
   const formatDistance = (meters: number | undefined): string => {
     if (!meters) return "N/A";
@@ -77,14 +81,34 @@ const OrderDetails = ({
     ? formatDuration(routeInfo.totalDuration)
     : orderDetails?.time || "Calculating...";
 
-  // Handler functions that call both context functions and props
+  // Clear all timers function
+  const clearAllTimers = () => {
+    if (timerTimeoutRef.current) {
+      clearTimeout(timerTimeoutRef.current);
+      timerTimeoutRef.current = null;
+    }
+    
+    if (timerAnimationRef.current) {
+      timerAnimationRef.current.stop();
+      timerAnimationRef.current = null;
+    }
+  };
+
+  // Handler functions with timer cleanup
   const handleAccept = () => {
+    // Clear all timers immediately to prevent race conditions
+    clearAllTimers();
+    
+    // Now accept order
     acceptOrder();
     if (onAcceptOrder) onAcceptOrder();
-    router.push("/(app)/navigation");
   };
 
   const handleDecline = () => {
+    // Clear all timers
+    clearAllTimers();
+    
+    // Then decline
     declineOrder();
     if (onDeclineOrder) onDeclineOrder();
   };
@@ -104,21 +128,28 @@ const OrderDetails = ({
     timerWidthAnim.setValue(1);
 
     // Use timing animation with smoother easing
-    Animated.timing(timerWidthAnim, {
+    const animation = Animated.timing(timerWidthAnim, {
       toValue: 0,
       duration: 15000, // 15 seconds
       easing: Easing.linear, // Linear animation for consistent speed
       useNativeDriver: false, // Must be false for width animations
-    }).start();
+    });
+    
+    // Store animation ref for cleanup
+    timerAnimationRef.current = animation;
+    animation.start();
 
     // Auto-decline after 15 seconds
     const timerTimeout = setTimeout(() => {
       console.log("Timer completed");
       handleDecline();
     }, 15000);
+    
+    // Store timeout ref for cleanup
+    timerTimeoutRef.current = timerTimeout;
 
-    // Clean up timeout on unmount
-    return () => clearTimeout(timerTimeout);
+    // Clean up on unmount
+    return () => clearAllTimers();
   }, []);
 
   return (

@@ -20,12 +20,7 @@ import * as Battery from "expo-battery";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { API_BASE_URL } from "./types/api";
 import MapboxGL from "@rnmapbox/maps";
-import {
-  DriverContextType,
-  Restaurant,
-  RouteInfo,
-  OrderAssignmentNotification,
-} from "./types/driver";
+import { DriverContextType, Restaurant, RouteInfo } from "./types/driver";
 import { fetchNearbyRestaurants } from "../services/fetchNearbyRestaurants";
 import { Client } from "@stomp/stompjs";
 import { createStompClient } from "../utils/websocket-client";
@@ -72,6 +67,9 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   // WebSocket client
   const [stompClient, setStompClient] = useState<Client | null>(null);
 
+  const [isAccepting, setIsAccepting] = useState<boolean>(false);
+  const [isRejecting, setIsRejecting] = useState<boolean>(false);
+
   // Animation values
   const buttonWidth = useRef(new Animated.Value(150)).current;
   const buttonHeight = useRef(new Animated.Value(50)).current;
@@ -92,6 +90,9 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const mapRef = useRef<MapboxGL.MapView>(null);
   const appState = useRef(AppState.currentState);
+
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Load driver information on mount
   useEffect(() => {
@@ -151,9 +152,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       return `${hours}h ${minutes}m`;
     }
   };
-
-  // Order timer countdown
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (showingOrderDetails && orderTimer > 0) {
@@ -444,59 +442,109 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const acceptOrder = async () => {
+    // Prevent multiple simultaneous accept requests
+    if (isAccepting) return;
+
     try {
+      setIsAccepting(true);
+
       if (!orderDetails?.orderId || !driver.id) {
         console.error("Missing order ID or driver ID for order acceptance");
         return;
       }
 
       // Clear any existing timers to prevent auto-rejection
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-      setOrderTimer(0); // Stop the countdown immediately
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
 
-      // Send API request to accept the order
-      await api.orders.acceptOrder(orderDetails.orderId, driver.id);
+      // Reset the timer display immediately
+      setOrderTimer(0);
 
-      // Close the order details container and navigate to navigation screen
+      // Cancel any animations that might be running
+      if (timerAnimationRef.current) {
+        timerAnimationRef.current.stop();
+      }
+
+      console.log(
+        `Accepting order ${orderDetails.orderId} by driver ${driver.id}`
+      );
+
+      // Store order details for navigation
+      const currentOrderDetails = { ...orderDetails };
+
+      // IMMEDIATELY close order details and navigate to navigation screen
       closeOrderDetails(() => {
+        // Navigate to the navigation screen immediately
         router.push("/(app)/navigation");
       });
-    } catch (error: any) {
-      console.error("Failed to accept order:", error);
 
-      // Enhanced error handling - check if this was due to the order being expired
-      if (
-        error.response?.status === 404 &&
-        error.response?.data?.includes("No pending assignment found")
-      ) {
-        Alert.alert(
-          "Order Expired",
-          "This order is no longer available. It may have expired or been assigned to another driver.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // Return to finding orders mode
-                closeOrderDetails(() => {
-                  animateToFindingOrders();
-                });
+      // Send API request AFTER navigation has started
+      try {
+        await api.orders.acceptOrder(currentOrderDetails.orderId, driver.id);
+        console.log("Order accepted successfully");
+      } catch (error: any) {
+        console.error("Failed to accept order:", error);
+
+        // Even if the API call fails, we're already on the navigation screen
+        // Just show a toast or small notification without disrupting the flow
+        if (error.response?.status === 404) {
+          // Order was already taken by someone else
+          Alert.alert(
+            "Order Unavailable",
+            "This order was assigned to another driver. You'll be redirected back to find new orders.",
+            [
+              {
+                text: "OK",
+                onPress: () => {
+                  // Go back to the home screen to find new orders
+                  router.replace("/(app)");
+                },
               },
-            },
-          ]
-        );
-      } else {
-        Alert.alert("Error", "Could not accept the order. Please try again.");
+            ]
+          );
+        } else {
+          // For other errors, we can allow the driver to continue with the delivery
+          // But show a warning that there might be issues
+          Alert.alert(
+            "Connection Issue",
+            "We've had trouble confirming your acceptance with our servers. You can continue with the delivery, but please check your connection.",
+            [{ text: "OK" }]
+          );
+        }
       }
+    } catch (error) {
+      console.error("Unexpected error in acceptOrder:", error);
+    } finally {
+      // Always reset accepting state
+      setIsAccepting(false);
     }
   };
-
   const declineOrder = async () => {
+    // Prevent multiple simultaneous decline requests
+    if (isRejecting) return;
+
     try {
+      setIsRejecting(true);
+
       if (!orderDetails?.orderId || !driver.id) {
         console.error("Missing order ID or driver ID for order rejection");
         return;
       }
+
+      // Clear any existing timers
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+
+      // Reset the timer display
+      setOrderTimer(0);
+
+      console.log(
+        `Declining order ${orderDetails.orderId} by driver ${driver.id}`
+      );
 
       // Send API request to decline the order
       await api.orders.declineOrder(orderDetails.orderId, driver.id);
@@ -505,9 +553,12 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
       closeOrderDetails(() => {
         animateToFindingOrders();
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to decline order:", error);
       Alert.alert("Error", "Could not decline the order. Please try again.");
+    } finally {
+      // Always reset rejecting state
+      setIsRejecting(false);
     }
   };
 
@@ -750,91 +801,6 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // WebSocket subscription function
-  // const subscribeToOrderAssignments = () => {
-  //   if (!stompClient || !driver.id) return;
-
-  //   // Define interface for the order assignment data that matches your backend structure
-  //   interface OrderAssignmentData {
-  //     orderId: string | number;
-  //     orderNumber: string;
-  //     payment: string;
-  //     expiryTime: string;
-  //     timestamp: number;
-  //     restaurantName: string;
-  //     restaurantAddress: string;
-  //     customerAddress: string;
-  //     restaurantCoordinates: {
-  //       latitude: number;
-  //       longitude: number;
-  //     };
-  //     customerCoordinates: {
-  //       latitude: number;
-  //       longitude: number;
-  //     };
-  //     specialInstructions: string | null;
-  //   }
-
-  //   // Define interface for location coordinates
-  //   interface Coordinates {
-  //     latitude: number;
-  //     longitude: number;
-  //   }
-
-  //   stompClient.subscribe(
-  //     `/queue/driver.${driver.id}.assignments`,
-  //     (message: { body: string }) => {
-  //       try {
-  //         const orderData: OrderAssignmentData = JSON.parse(message.body);
-  //         console.log("New order assignment received:", orderData);
-
-  //         // Set order details from the notification
-  //         setOrderDetails({
-  //           orderId: orderData.orderId,
-  //           orderNumber: orderData.orderNumber,
-  //           restaurantName: orderData.restaurantName,
-  //           address: orderData.customerAddress,
-  //           payment: orderData.payment,
-  //           specialInstructions: orderData.specialInstructions || "",
-
-  //           // Use coordinates directly from the nested objects
-  //           restaurantCoordinates: orderData.restaurantCoordinates,
-  //           customerCoordinates: orderData.customerCoordinates,
-  //         });
-
-  //         // Set route points for the map
-  //         setOrderRoute([
-  //           orderData.restaurantCoordinates as Coordinates,
-  //           orderData.customerCoordinates as Coordinates,
-  //         ]);
-
-  //         // Show the order details modal
-  //         animateButtonToOrderDetails();
-
-  //         // Start the timer
-  //         setOrderTimer(15);
-  //         timerProgress.setValue(1);
-  //       } catch (error) {
-  //         console.error("Error processing order assignment:", error);
-  //       }
-  //     }
-  //   );
-
-  //   // Subscribe to assignment cancellations
-  //   stompClient.subscribe(
-  //     `/queue/driver.${driver.id}.cancellations`,
-  //     (message: { body: string }) => {
-  //       try {
-  //         const cancellationData = JSON.parse(message.body);
-  //         console.log("Assignment cancellation received:", cancellationData);
-  //         // Handle cancellation if needed
-  //       } catch (error) {
-  //         console.error("Error processing cancellation:", error);
-  //       }
-  //     }
-  //   );
-  // };
-
   const handleGoToSettings = () => {
     router.push("/(app)/settings");
   };
@@ -859,6 +825,8 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
         routeInfo,
         restaurants,
         isLoadingRestaurants,
+        isAccepting,
+        isRejecting,
 
         // Animation values
         buttonWidth,

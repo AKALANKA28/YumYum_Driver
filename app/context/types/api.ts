@@ -24,8 +24,8 @@ export interface Restaurant {
 import NetInfo from '@react-native-community/netinfo';
 
 // Single base URL for all environments
-// const BASE_URL = "http://192.168.137.141/api";
-const BASE_URL = "http://192.168.1.159/api";
+const BASE_URL = "http://192.168.75.141/api";
+// const BASE_URL = "http://192.168.1.159/api";
 
 
 
@@ -386,13 +386,17 @@ const api = {
     orders: {
       // Existing methods
       acceptOrder: async (orderId: string | number, driverId: string | number) => {
-        try {
-          const response = await apiClient.put(`/assignments/${orderId}/confirm/${driverId}`);
-          return response.data;
-        } catch (error) {
-          console.error(`Failed to accept order ${orderId}:`, error);
-          throw error;
-        }
+       try {
+      const response = await apiClient.put(`/assignments/${orderId}/confirm/${driverId}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error("This order is no longer available for acceptance.");
+      } else if (error.response?.status === 500) {
+        throw new Error("Server error when accepting order. Please try again.");
+      }
+      throw error;
+    }
       },
       
       declineOrder: async (orderId: string | number, driverId: string | number) => {

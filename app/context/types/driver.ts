@@ -132,5 +132,8 @@ export interface DriverContextType {
   mapRef: React.RefObject<MapboxGL.MapView>;
   routeInfo: RouteInfo | null;
 
+  isAccepting: boolean;
+  isRejecting: boolean;
+
 }
 
