@@ -499,7 +499,7 @@ export const DriverContextProvider: React.FC<{ children: React.ReactNode }> = ({
                 text: "OK",
                 onPress: () => {
                   // Go back to the home screen to find new orders
-                  router.replace("/(app)");
+                  router.replace("/(app)/home");
                 },
               },
             ]

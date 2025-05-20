@@ -239,7 +239,7 @@ export default function EarningsScreen() {
 
       {activeTab === "earnings" ? (
         <ScrollView showsVerticalScrollIndicator={false}>
-          <EarningsSummary
+          {/* <EarningsSummary
             period={currentPeriod}
             amount={currentAmount}
             onNextPeriod={() => handlePeriodChange("next")}
@@ -250,7 +250,8 @@ export default function EarningsScreen() {
               perHour: "$27.57",
               distance: "186 km",
             }}
-          />
+          /> */}
+
 
           <EarningsChart
             activeTab={chartView}
